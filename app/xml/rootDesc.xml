@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0" configId="0">
+  <specVersion>
+    <major>1</major>
+    <minor>1</minor>
+  </specVersion>
+  <device>
+    <deviceType>urn:schemas-upnp-org:device:InternetGatewayDevice:1</deviceType>
+    <friendlyName>MERCURY SMB MR108GP-AC</friendlyName>
+    <manufacturer>MERCURY</manufacturer>
+    <manufacturerURL>http://www.mercurycom.com.cn</manufacturerURL>
+    <modelDescription>MR108GP-AC 4.0</modelDescription>
+    <modelName>MR108GP-AC</modelName>
+    <modelNumber>4.0</modelNumber>
+    <modelURL>http://www.mercurycom.com.cn</modelURL>
+    <serialNumber>00000000</serialNumber>
+    <UDN>uuid:ed8d683a-91ea-402b-9c25-d0a48f23e9d7</UDN>
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:Layer3Forwarding:1</serviceType>
+        <serviceId>urn:upnp-org:serviceId:L3Forwarding1</serviceId>
+        <SCPDURL>/L3F.xml</SCPDURL>
+        <controlURL>/ctl/L3F</controlURL>
+      </service>
+    </serviceList>
+    <deviceList>
+      <device>
+        <deviceType>urn:schemas-upnp-org:device:WANDevice:1</deviceType>
+        <friendlyName>WANDevice</friendlyName>
+        <manufacturer>MERCURY</manufacturer>
+        <manufacturerURL>http://www.mercurycom.com.cn</manufacturerURL>
+        <modelDescription>WAN Device</modelDescription>
+        <modelName>WAN Device</modelName>
+        <modelNumber>20230223</modelNumber>
+        <modelURL>http://www.mercurycom.com.cn</modelURL>
+        <serialNumber>00000000</serialNumber>
+        <UDN>uuid:ed8d683a-91ea-402b-9c25-d0a48f23e9d8</UDN>
+        <UPC>000000000000</UPC>
+        <serviceList>
+          <service>
+            <serviceType>urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1</serviceType>
+            <serviceId>urn:upnp-org:serviceId:WANCommonIFC1</serviceId>
+            <SCPDURL>/WANCfg.xml</SCPDURL>
+            <controlURL>/ctl/CmnIfCfg</controlURL>
+          </service>
+        </serviceList>
+        <deviceList>
+          <device>
+            <deviceType>urn:schemas-upnp-org:device:WANConnectionDevice:1</deviceType>
+            <friendlyName>WANConnectionDevice</friendlyName>
+            <manufacturer>MERCURY</manufacturer>
+            <manufacturerURL>http://www.mercurycom.com.cn</manufacturerURL>
+            <modelDescription>WAN Connection Device</modelDescription>
+            <modelName>WAN Connection Device</modelName>
+            <modelNumber>20230223</modelNumber>
+            <modelURL>http://www.mercurycom.com.cn</modelURL>
+            <serialNumber>00000000</serialNumber>
+            <UDN>uuid:ed8d683a-91ea-402b-9c25-d0a48f23e9d9</UDN>
+            <UPC>000000000000</UPC>
+            <serviceList>
+              <service>
+                <serviceType>urn:schemas-upnp-org:service:WANIPConnection:1</serviceType>
+                <serviceId>urn:upnp-org:serviceId:WANIPConn1</serviceId>
+                <SCPDURL>/WANIPCn.xml</SCPDURL>
+                <controlURL>/ctl/IPConn</controlURL>
+              </service>
+            </serviceList>
+          </device>
+        </deviceList>
+      </device>
+    </deviceList>
+    <presentationURL>http://{{ LOCAL_IP }}:{{ LOCAL_PORT }}/</presentationURL>
+  </device>
+</root>
