@@ -25,10 +25,12 @@ class Config:
     SERVER_ID = "Linux/2.6.18 UPnP/1.1 alter_upnpd/1.0"
     STUN_RETRIES = 4
     STUN_REFRESH_INTERVAL = 86400
-    FALLBACK_WAN_IP = "1.2.3.4"
+    FALLBACK_WAN_IP = "192.0.2.1"
+    GOST_API_USERNAME = os.environ.get("GOST_API_USERNAME", "")
+    GOST_API_PASSWORD = os.environ.get("GOST_API_PASSWORD", "")
     GOST_REQUEST_TIMEOUT = 10
     GOST_RETRIES = 2
-    VERSION = "1.0.0"
+    VERSION = "1.0.1"
     SHUTDOWN_TIMEOUT = 5
     WSGI_WORKERS = 1
     WSGI_TIMEOUT = 30

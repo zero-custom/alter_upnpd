@@ -4,6 +4,9 @@ services:
     network_mode: host
     restart: unless-stopped
     command: ["-api", ":8000"]
+    # API 认证（建议项，非必需）
+    # 若开启，alter_upnpd 需配置 GOST_API_USERNAME / GOST_API_PASSWORD
+    # command: ["-api", "myuser:mypass@:8000"]
 
   alter_upnpd:
     image: zerocustom/alter_upnpd:latest
@@ -32,3 +35,6 @@ services:
       - LEASE_DURATION=604800
       - LEASE_CLEANUP_INTERVAL=60
       - STUN_SERVER=stun.l.google.com:19302
+      # GOST API 认证（建议项，与 GOST 服务端 auth 配合使用）
+      # - GOST_API_USERNAME=myuser
+      # - GOST_API_PASSWORD=mypass

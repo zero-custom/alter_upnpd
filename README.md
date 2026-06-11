@@ -102,6 +102,8 @@ docker run -d \
 | `-e LEASE_DURATION=604800` | 端口映射租约上限（秒） |
 | `-e LEASE_CLEANUP_INTERVAL=60` | 过期清理间隔（秒） |
 | `-e SSDP_NOTIFY_INTERVAL=180` | SSDP 公告间隔（秒） |
+| `-e GOST_API_USERNAME=user` | GOST API 认证用户名（建议项，与 `GOST_API_PASSWORD` 同时设置才生效） |
+| `-e GOST_API_PASSWORD=pass` | GOST API 认证密码 |
 
 ### 引导脚本 docker.sh
 

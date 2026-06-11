@@ -22,6 +22,13 @@ L3F_ACTIONS = {}
 
 PORT_MIN = 1
 PORT_MAX = 65535
+MAX_SOAP_BODY = 100 * 1024
+
+_ALLOWED_NETWORKS = [
+    ipaddress.ip_network(s.strip(), strict=False)
+    for s in Config.ACL_ALLOWED_SUBNETS.split(",")
+    if s.strip()
+]
 
 def soap_action(action_name):
     def decorator(func):
@@ -56,8 +63,12 @@ class UPnPSOAPHandler:
         self._current_service_urn = None
 
     def parse_soap_body(self, xml_data: str) -> dict:
+        if len(xml_data) > MAX_SOAP_BODY:
+            logger.warning("SOAP body too large: %d bytes", len(xml_data))
+            return {}
         try:
-            root = etree.fromstring(xml_data.encode())
+            parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            root = etree.fromstring(xml_data.encode(), parser)
             body = root.find(".//s:Body", namespaces=NS)
             if body is None:
                 return {}
@@ -184,17 +195,7 @@ class UPnPSOAPHandler:
     def _is_ip_allowed(client_ip: str) -> bool:
         try:
             addr = ipaddress.ip_address(client_ip)
-            for subnet_str in Config.ACL_ALLOWED_SUBNETS.split(","):
-                subnet_str = subnet_str.strip()
-                if not subnet_str:
-                    continue
-                try:
-                    subnet = ipaddress.ip_network(subnet_str, strict=False)
-                    if addr in subnet:
-                        return True
-                except ValueError:
-                    logger.warning("Invalid ACL subnet: %s", subnet_str)
-            return False
+            return any(addr in net for net in _ALLOWED_NETWORKS)
         except ValueError:
             logger.warning("Invalid client IP for ACL: %s", client_ip)
             return False

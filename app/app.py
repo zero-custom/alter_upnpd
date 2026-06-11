@@ -17,6 +17,7 @@ logger = logging.getLogger("alter_upnpd")
 VERSION = Config.VERSION
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024
 
 gost_client = GostClient(Config.GOST_API_URL)
 soap_handler = UPnPSOAPHandler(gost_client)
@@ -39,14 +40,20 @@ def setup_logging() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
+_LOCAL_IP_CACHE: str | None = None
+
 def get_local_ip() -> str:
+    global _LOCAL_IP_CACHE
+    if _LOCAL_IP_CACHE is not None:
+        return _LOCAL_IP_CACHE
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.settimeout(0.1)
             s.connect(('10.255.255.255', 1))
-            return s.getsockname()[0]
+            _LOCAL_IP_CACHE = s.getsockname()[0]
     except Exception:
-        return '127.0.0.1'
+        _LOCAL_IP_CACHE = '127.0.0.1'
+    return _LOCAL_IP_CACHE
 
 def get_local_port() -> int:
     return Config.LISTEN_PORT

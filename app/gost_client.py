@@ -1,3 +1,4 @@
+import base64
 import logging
 import time
 from typing import Any, Optional, List, Dict
@@ -84,6 +85,12 @@ class GostClient:
     def _request(self, method: str, path: str, **kwargs) -> Any:
         url = f"{self.base_url}{path}"
         max_retries = Config.GOST_RETRIES
+
+        if Config.GOST_API_USERNAME and Config.GOST_API_PASSWORD:
+            credentials = f"{Config.GOST_API_USERNAME}:{Config.GOST_API_PASSWORD}"
+            encoded = base64.b64encode(credentials.encode()).decode()
+            headers = kwargs.setdefault("headers", {})
+            headers.setdefault("Authorization", f"Basic {encoded}")
 
         for attempt in range(max_retries + 1):
             try:
