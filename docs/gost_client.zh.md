@@ -24,6 +24,7 @@
 | `is_available()` | 用 5 秒超时 ping `/config/services`，返回 `True`/`False`。 |
 | `get_services()` | 从 GOST 获取所有服务。有缓存。失败返回 `[]`。兼容 list、dict.data 和嵌套响应格式。 |
 | `add_port_mapping(external_port, internal_port, internal_client, protocol, description, remote_host, enabled, lease_duration)` | 单次 POST 到 `/config/services`，内联 `forwarder.nodes`。所有字段存入 `metadata`。 |
+| `update_port_mapping(external_port, internal_port, internal_client, protocol, description, remote_host, enabled, lease_duration)` | PUT `/config/services/{name}` — 原地更新已有服务（刷新 `created_at` 延长租期）。AddPortMapping 同客户端覆盖场景使用。 |
 | `delete_port_mapping(external_port, protocol)` | 直接构造名称为 `upnp_{port}_{protocol}`，DELETE `/config/services/{name}`。404 被静默吞掉。 |
 | `get_port_mappings()` | 过滤出 `metadata.upnp == True` 的服务，所有字段从 metadata 读取（不解析 addr/forwarder）。 |
 | `get_port_mapping_by_index(index)` | 从 `get_port_mappings()` 返回第 N 个映射，或 `None`。 |

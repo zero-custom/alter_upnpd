@@ -96,6 +96,7 @@ docker run -d \
 | `-e LISTEN_PORT=5000` | HTTP 监听端口，须与端口映射一致 |
 | `-e DEBUG=false` | 开启调试日志 |
 | `-e ACL_ENABLED=true` | IP 访问控制开关 |
+| `-e SECURE_MODE=true` | 安全模式：阻止客户端映射到非自身 IP / 删除他人映射 |
 | `-e ACL_ALLOWED_SUBNETS=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12` | 允许的客户端子网（逗号分隔） |
 | `-e STUN=true` | 启用 STUN 外网 IP 探测 |
 | `-e STUN_SERVER=stun.l.google.com:19302` | STUN 服务器地址 |

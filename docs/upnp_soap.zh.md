@@ -36,7 +36,7 @@
 
 | 动作 | 说明 |
 |---|---|
-| `AddPortMapping` | 创建 GOST 端口映射。除了标准 UPnP 字段外，捕获 `NewRemoteHost` 和 `NewEnabled`。调用 `has_port_mapping()` 检测冲突（错误 716）。调用 `gost.add_port_mapping()` 传入所有参数。 |
+| `AddPortMapping` | 创建或续约 GOST 端口映射。除了标准 UPnP 字段外，捕获 `NewRemoteHost` 和 `NewEnabled`。调用 `get_port_mapping_by_port()` 检查已有映射——同客户端通过 `update_port_mapping()` 续约（PUT，刷新 `created_at`），不同客户端返回 `718 ConflictInMappingEntry`。新映射调用 `gost.add_port_mapping()`。 |
 | `DeletePortMapping` | 通过构造 service 名称 `upnp_{external_port}_{protocol}` 删除 GOST 端口映射。调用 `gost.delete_port_mapping()`。 |
 | `GetGenericPortMappingEntry` | 返回第 N 个映射（基于索引的翻页，使用 `get_port_mapping_by_index`）。包含 `lease_duration_remaining`。 |
 | `GetSpecificPortMappingEntry` | 从 `get_port_mappings()` 返回匹配外网端口+协议+远程主机的映射。 |
@@ -83,7 +83,7 @@ SOAP 错误使用 UPnP 错误码包装在 `<s:Fault>` 结构中：
 | 713 | SpecifiedArrayIndexInvalid |
 | 714 | NoSuchEntry |
 | 715 | 端口超出范围（1-65535） |
-| 716 | ConflictInMappingEntry |
+| 718 | ConflictInMappingEntry（v1.0.2 起替代 716） |
 
 ## 租期逻辑
 

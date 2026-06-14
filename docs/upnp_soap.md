@@ -36,7 +36,7 @@ All dispatchers share `_handle_service_request()` which:
 
 | Action | Description |
 |---|---|
-| `AddPortMapping` | Creates a GOST port mapping. Captures `NewRemoteHost` and `NewEnabled` in addition to standard UPnP fields. Checks `has_port_mapping()` to detect conflicts (error 716). Calls `gost.add_port_mapping()` with all parameters. |
+| `AddPortMapping` | Creates or renews a GOST port mapping. Captures `NewRemoteHost` and `NewEnabled` in addition to standard UPnP fields. Checks `get_port_mapping_by_port()` for existing mappings — same-client renews via `update_port_mapping()` (PUT, refreshes `created_at`), different-client returns `718 ConflictInMappingEntry`. Calls `gost.add_port_mapping()` for new mappings. |
 | `DeletePortMapping` | Deletes a GOST port mapping by constructing service name `upnp_{external_port}_{protocol}`. Calls `gost.delete_port_mapping()`. |
 | `GetGenericPortMappingEntry` | Returns the Nth mapping (index-based pagination via `get_port_mapping_by_index`). Includes `lease_duration_remaining`. |
 | `GetSpecificPortMappingEntry` | Returns mapping matching external port + protocol + remote host from `get_port_mappings()`. |
@@ -83,7 +83,7 @@ SOAP faults use UPnP error codes wrapped in a `<s:Fault>` envelope:
 | 713 | SpecifiedArrayIndexInvalid |
 | 714 | NoSuchEntry |
 | 715 | Port out of range (1-65535) |
-| 716 | ConflictInMappingEntry |
+| 718 | ConflictInMappingEntry (replaces 716 in v1.0.2) |
 
 ## Lease Duration Logic
 

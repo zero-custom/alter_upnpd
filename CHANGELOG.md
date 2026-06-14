@@ -1,0 +1,58 @@
+# Changelog
+
+## 1.0.2 (2026-06-13)
+
+### Fixed
+- **修复 AddPortMapping 冲突检测**: 同客户端覆盖续约（PUT 更新 metadata 刷新租期），冲突错误码 `716` → `718`。
+- **NewInternalClient 空值回填**: 客户端不传 `NewInternalClient` 时自动回填 `request.remote_addr`。
+- **RSIPAvailable 虚假声明**: `1` → `0`（IGDv1 不支持 RSIP）。
+- **未知 Action 错误码**: `606 Action not authorized` → `501 Action failed`。
+
+### Security
+- **AddPortMapping Security Mode**: 新增 `SECURE_MODE` 配置（默认启用），阻止客户端将端口映射到非自身 IP，返回 `718 ConflictInMappingEntry`。
+- **DeletePortMapping Security Mode**: 阻止客户端删除他人映射，返回 `714 NoSuchEntryInArray`。
+- 错误信息遵从安全最佳实践——不暴露映射归属信息。
+
+### Changed
+- **SSDP NOTIFY 消息**: 新增 `BOOTID.UPNP.ORG`、`CONFIGID.UPNP.ORG` 头。
+- **SSDP M-SEARCH 响应**: `DATE` 头从空字符串改为 RFC 1123 格式当前时间；新增 `BOOTID.UPNP.ORG`、`CONFIGID.UPNP.ORG`。
+- **ssdp:all 搜索**: 回复从 1 条扩展为 8 条（rootdevice + 各设备/服务）。
+
+### Added
+- `SECURE_MODE` 环境变量（`config.py`）。
+- `GostClient.get_port_mapping_by_port()` 方法，按端口/协议查映射详情。
+- `GostClient.update_port_mapping()` 方法，PUT 更新已有服务 metadata。
+
+---
+
+## 1.0.1 (2026-06-08)
+
+### Fixed
+- 修复 Docker 容器内 SSDP 多播绑定失败时的优雅降级（PermissionError 捕获）。
+- 修复 `NewLeaseDuration` 空值/非数字时的异常处理。
+
+### Changed
+- SOAP 处理器合并，`WANPPPConnection` 与 `WANIPConnection` 共享统一路由 `/ctl/IPConn`。
+- `GetStatusInfo` 返回实际运行时长（`time.time() - _start_time`）。
+- `ACL_ENABLED` 默认改为 `true`，默认拒绝外部 IP 访问控制端点。
+- 租赁过期清理线程默认间隔从 300s 改为 60s。
+- `SERVER_ID` 统一定义为 `Linux/2.6.18 UPnP/1.1 alter_upnpd/1.0`。
+
+### Added
+- 新增 `ACL_ENABLED` / `ACL_ALLOWED_SUBNETS` 环境变量。
+- 新增 `GOST_API_USERNAME` / `GOST_API_PASSWORD` 配置，支持 GOST API 认证。
+- 新增 `/health` 健康检查端点，返回 GOST 连接状态和映射数量。
+- SGID 租赁过期自动清理机制（`run_lease_cleanup`）。
+
+---
+
+## 1.0.0 (2026-06-07)
+
+### Initial
+- 项目创建，基于 Flask + `ssdp` 库 + `py3stun` 实现 UPnP IGD 网关。
+- 支持 WANIPConnection:1 核心操作：`AddPortMapping` / `DeletePortMapping` / `GetGenericPortMappingEntry` / `GetSpecificPortMappingEntry` / `GetExternalIPAddress`。
+- 支持 WANCommonInterfaceConfig:1 / Layer3Forwarding:1 基础操作。
+- SSDP 设备发现：NOTIFY alive/byebye + M-SEARCH 响应。
+- STUN 外网 IP 探测（`stun.l.google.com:19302`）。
+- GOST API CRUD 客户端，带重试、缓存、租赁过期查询。
+- Docker 部署：`docker-compose.yml` + `Dockerfile`。

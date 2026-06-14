@@ -24,6 +24,7 @@ Instance per application. Holds a TTL-less service cache (`_services_cache`) tha
 | `is_available()` | Pings `/config/services` with 5s timeout, returns `True`/`False`. |
 | `get_services()` | Fetches all services from GOST. Cached. Returns `[]` on failure. Handles list, dict.data, and nested responses. |
 | `add_port_mapping(external_port, internal_port, internal_client, protocol, description, remote_host, enabled, lease_duration)` | Single POST to `/config/services` with inline `forwarder.nodes`. Stores all fields in `metadata`. |
+| `update_port_mapping(external_port, internal_port, internal_client, protocol, description, remote_host, enabled, lease_duration)` | PUT `/config/services/{name}` — updates an existing service in-place (refreshes `created_at` to extend lease). Used by same-client overwrite in AddPortMapping. |
 | `delete_port_mapping(external_port, protocol)` | Direct name construction `upnp_{port}_{protocol}`, DELETEs from `/config/services/{name}`. 404s are silently swallowed. |
 | `get_port_mappings()` | Filters services to those with `metadata.upnp == True`, reads all fields from metadata (not addr/forwarder parsing). |
 | `get_port_mapping_by_index(index)` | Nth mapping from `get_port_mappings()`, or `None`. |

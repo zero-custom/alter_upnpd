@@ -4,7 +4,7 @@
 
 | 设置 | 值 |
 |---|---|
-| `bind` | `0.0.0.0:{LISTEN_PORT}`（从环境变量读取，默认 8000） |
+| `bind` | `0.0.0.0:{LISTEN_PORT}`（从环境变量读取，默认 5000） |
 | `workers` | 1 |
 | `worker_class` | `sync` |
 | `timeout` | 30s |

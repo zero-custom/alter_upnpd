@@ -4,7 +4,7 @@ Gunicorn server configuration for production deployment. Single worker, synchron
 
 | Setting | Value |
 |---|---|
-| `bind` | `0.0.0.0:{LISTEN_PORT}` (from environment, default 8000) |
+| `bind` | `0.0.0.0:{LISTEN_PORT}` (from environment, default 5000) |
 | `workers` | 1 |
 | `worker_class` | `sync` |
 | `timeout` | 30s |

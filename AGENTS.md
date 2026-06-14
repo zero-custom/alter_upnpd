@@ -25,7 +25,7 @@ alter_upnpd/
 │       ├── L3F.xml
 │       ├── WANCfg.xml
 │       └── WANIPCn.xml
-├── test/                    # 测试（88 个用例）
+├── test/                    # 测试（96 个用例）
 │   ├── conftest.py
 │   ├── test_app.py
 │   ├── test_gost_client.py
@@ -57,7 +57,7 @@ alter_upnpd/
 | 添加端口转发 | upnp_soap.py → `_handle_add_port_mapping` |
 | 删除端口转发 | upnp_soap.py → `_handle_delete_port_mapping` |
 | 按索引/协议查询端口映射 | upnp_soap.py → `_handle_get_port_mapping_entry` / `_handle_get_specific_port_mapping` |
-| GOST API 增删 | gost_client.py → `add_port_mapping` / `delete_port_mapping` |
+| GOST API 增删改 | gost_client.py → `add_port_mapping` / `update_port_mapping` / `delete_port_mapping` |
 | GOST API 查询 | gost_client.py → `get_port_mappings` / `get_port_mapping_by_index` / `has_port_mapping` |
 | 租赁过期清理 | gost_client.py → `get_expired_services` / app.py → `run_lease_cleanup` |
 | STUN 外网 IP | stun_client.py → `init()` / `get_wan_ip()` |
@@ -72,7 +72,7 @@ alter_upnpd/
 - SOAP 处理使用 `@soap_action` 装饰器注册（`upnp_soap.py`）
 - XML 使用 Jinja2 模板渲染，缓存按 mtime 失效
 - 配置通过 `config.Config` 类（从环境变量读取）
-- `GostClient` 有内部缓存 (`_services_cache`)，增删操作后自动清空缓存
+- `GostClient` 有内部缓存 (`_services_cache`)，增删改操作后自动清空缓存
 - 异常体系：`GostConnectionError`（网络层） / `GostApiError`（HTTP 层）
 
 ## API ROUTES
@@ -148,6 +148,7 @@ docker compose up -d gost alter_upnpd
 | `LISTEN_PORT` | `5000` | HTTP 监听端口（默认 5000，避免与 GOST API 端口冲突） |
 | `DEBUG` | `false` | 调试日志开关 |
 | `ACL_ENABLED` | `true` | IP 访问控制 |
+| `SECURE_MODE` | `true` | 安全模式：阻止跨 IP 映射和删除他人映射 |
 | `ACL_ALLOWED_SUBNETS` | `192.168.0.0/16,10.0.0.0/8,172.16.0.0/12` | 允许的子网 |
 | `SSDP_NOTIFY_INTERVAL` | `180` | SSDP 公告间隔（秒） |
 | `STUN` | `true` | 启用 STUN 外网探测 |
@@ -160,5 +161,5 @@ docker compose up -d gost alter_upnpd
 - STUN 通过 `py3stun` 库实现，默认启用
 - 支持 upnpc 命令：`-a` 添加, `-d` 删除, `-r` 查询, `-l` 列表, `-s` 状态
 - 路由 `/ctl/WANPPPCn` 与 `/ctl/IPConn` 共享同一处理器
-- GostClient 内置重试（3 次）和缓存，缓存增删操作后自动失效
+- GostClient 内置重试（3 次）和缓存，缓存增删改操作后自动失效
 - gunicorn_config.py 生命周期钩子管理 SSDP/租赁清理线程
