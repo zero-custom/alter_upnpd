@@ -209,6 +209,60 @@ class GostClient:
         )
         return result
 
+    def update_port_mapping(
+        self,
+        external_port: int,
+        internal_port: int,
+        internal_client: str,
+        protocol: str = "tcp",
+        description: str = "",
+        remote_host: str = "",
+        enabled: bool = True,
+        lease_duration: int = 0,
+    ) -> Dict[str, Any]:
+        proto_lower = protocol.lower()
+        service_name = f"upnp_{external_port}_{proto_lower}"
+
+        service_config = {
+            "name": service_name,
+            "addr": f":{external_port}",
+            "handler": {"type": proto_lower},
+            "listener": {"type": proto_lower},
+            "metadata": {
+                "upnp": True,
+                "external_port": external_port,
+                "internal_port": internal_port,
+                "internal_client": internal_client,
+                "protocol": proto_lower,
+                "description": description,
+                "remote_host": remote_host,
+                "enabled": enabled,
+                "lease_duration": lease_duration,
+                "created_at": int(time.time()),
+            },
+            "forwarder": {
+                "nodes": [
+                    {
+                        "name": f"node_{external_port}_{proto_lower}",
+                        "addr": f"{internal_client}:{internal_port}",
+                    }
+                ]
+            },
+        }
+
+        logger.info(
+            "Updating port mapping: %s/%s -> %s:%s  service=%s  lease=%s",
+            protocol, external_port, internal_client, internal_port,
+            service_name, lease_duration,
+        )
+
+        result = self._request("PUT", f"/config/services/{service_name}", json=service_config)
+        self._services_cache = None
+        logger.info(
+            "Port mapping updated: %s/%s (lease=%s)", protocol, external_port, lease_duration
+        )
+        return result
+
     def delete_port_mapping(self, external_port: int, protocol: str = "tcp") -> Dict[str, Any]:
         service_name = f"upnp_{external_port}_{protocol}"
         logger.info(
@@ -260,4 +314,12 @@ class GostClient:
         mappings = self.get_port_mappings()
         if 0 <= index < len(mappings):
             return mappings[index]
+
+    def get_port_mapping_by_port(self, external_port: int, protocol: str = "tcp") -> Optional[Dict[str, Any]]:
+        mappings = self.get_port_mappings()
+        proto = protocol.lower()
+        for m in mappings:
+            if m["external_port"] == external_port and m["protocol"].lower() == proto:
+                return m
+        return None
         return None

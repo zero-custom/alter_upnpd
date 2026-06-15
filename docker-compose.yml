@@ -20,7 +20,7 @@ services:
     entrypoint: ["/app/docker.sh"]
     command: ["gunicorn", "-c", "gunicorn_config.py", "app:application"]
     healthcheck:
-      test: wget -qO - http://localhost:5000/health | grep -q healthy
+      test: wget -qO - http://127.0.0.1:5000/health | grep -q healthy
       interval: 5s
       start_period: 30s
       timeout: 5s

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0 (2026-06-14)
+
+### Added
+- **上游 IGD 端口映射同步**：新增 `upstream_client.py` 模块，通过 `UPSTREAM_IGD_URL` 配置上游 UPnP IGD 的 rootDesc.xml URL，自动发现 WANIPConnection 控制端点。
+- **Add/Delete 同步**：AddPortMapping / DeletePortMapping 操作成功时自动同步至上游 IGD。
+- **映射拓扑**：上游映射使用与下游相同的 `NewExternalPort`，`NewInternalClient` 自动设为 alter_upnpd 宿主机 IP，`NewInternalPort` 等于下游 `NewExternalPort`。
+- **静默降级**：上游 IGD 不可达或返回错误时仅记录警告，不影响下游 GOST 映射的正常使用。
+- `UPSTREAM_IGD_URL` 环境变量（`config.py`）。
+
+---
+
 ## 1.0.2 (2026-06-13)
 
 ### Fixed

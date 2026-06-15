@@ -15,6 +15,7 @@
 | `STUN_SERVER` | `stun.l.google.com:19302` | STUN 服务器地址（host:port，用于外网 IP 发现）。 |
 | `LEASE_DURATION` | `604800` | 端口映射的默认租期（秒）。上限为 604800（7 天）。 |
 | `LEASE_CLEANUP_INTERVAL` | `60` | 过期租期清理扫描的间隔（秒）。 |
+| `UPSTREAM_IGD_URL` | `""` | 上游 UPnP IGD 的 rootDesc.xml URL。设置后 AddPortMapping / DeletePortMapping 会自动同步至上游 IGD（失败时静默降级，不影响下游映射）。 |
 | `GOST_API_USERNAME` | `""` | GOST API Basic Auth 用户名（需同时设置用户名和密码才生效）。 |
 | `GOST_API_PASSWORD` | `""` | GOST API Basic Auth 密码。 |
 | `GOST_REQUEST_TIMEOUT` | `10` | GOST API HTTP 请求超时（秒）。 |

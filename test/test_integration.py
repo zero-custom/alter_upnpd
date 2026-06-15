@@ -243,25 +243,6 @@ def _probe(host, port, payload, timeout=8):
         return None, f"exception: {type(e).__name__}: {e}"
 
 
-# ── Helpers: test runner (script mode) ──
-
-
-def _run_test(fn, *args, **kwargs):
-    """Run a test function, converting AssertionError to False return.
-
-    Allows test functions to use ``assert`` (pytest-compatible) while
-    still returning a bool for the script-mode ``main()`` flow.
-    """
-    try:
-        fn(*args, **kwargs)
-        return True
-    except AssertionError:
-        return False
-    except Exception as e:
-        log.error("  [!] %s raised: %s: %s", fn.__name__, type(e).__name__, e)
-        return False
-
-
 # ── Test cases ──
 
 
@@ -274,7 +255,7 @@ def test_device_discovery():
     )
     detail = f"HTTP {status}" + (f", {len(body)} bytes" if ok else "")
     report("Device discovery (rootDesc.xml)", ok, detail)
-    assert ok, detail
+    return ok
 
 
 def test_health_endpoint():
@@ -290,7 +271,7 @@ def test_health_endpoint():
         except json.JSONDecodeError:
             detail += ", invalid JSON"
     report("Health endpoint", ok, detail)
-    assert ok, detail
+    return ok
 
 
 def test_add_port_mapping(client_ip=None):
@@ -309,13 +290,13 @@ def test_add_port_mapping(client_ip=None):
     report("upnpc add port mapping", ok, f"rc={rc}, output({len(output)}B): {output.strip()}")
     if ok:
         time.sleep(1)
-    assert ok, f"rc={rc}, output={output.strip()}"
+    return ok
 
 
 def test_verify_via_gost():
     if not GOST_API_URL:
         skip("Verify mapping via GOST API (GOST_API_URL not set)")
-        return
+        return True
 
     # Use GET /config (full config dump) — confirmed to return
     # {"services": [...]} with the full service list.
@@ -338,7 +319,7 @@ def test_verify_via_gost():
     else:
         detail = "GOST API /config returned unexpected data"
     report("Verify mapping via GOST API", ok, detail)
-    assert ok, detail
+    return ok
 
 
 def test_list_port_mappings():
@@ -347,7 +328,7 @@ def test_list_port_mappings():
     count = output.count("->") if ok else 0
     detail = f"rc={rc}, {count} mappings listed" if ok else f"rc={rc}"
     report("upnpc list port mappings", ok, detail)
-    assert ok, detail
+    return ok
 
 
 def _test_forwarding(gateway_ip, echo_port, ext_port, payload):
@@ -378,13 +359,13 @@ def test_delete_port_mapping():
     report("upnpc delete port mapping", ok, f"rc={rc}")
     if ok:
         time.sleep(1)
-    assert ok, f"rc={rc}"
+    return ok
 
 
 def test_verify_deleted_via_gost():
     if not GOST_API_URL:
         skip("Verify deletion via GOST API (GOST_API_URL not set)")
-        return
+        return True
 
     data = gost_api("/config")
     ok = True
@@ -401,7 +382,7 @@ def test_verify_deleted_via_gost():
         else:
             detail = "config no longer contains services \u2014 confirmed deleted"
     report("Verify deletion via GOST API", ok, detail)
-    assert ok, detail
+    return ok
 
 
 def _test_forwarding_stopped(gateway_ip, ext_port, timeout=5):
@@ -449,7 +430,7 @@ def test_upnpc_discovery():
     else:
         detail = f"rc={rc}"
     report("upnpc status (discovery + SOAP)", ok, detail)
-    assert ok, detail
+    return ok
 
 
 # ── Main ──
@@ -476,8 +457,8 @@ def main():
         log.warning("  \u26a0  alter_upnpd not responding after 30s")
         sys.exit(1)
     log.info("  alter_upnpd ready, running tests...")
-    d1 = _run_test(test_device_discovery)
-    d2 = _run_test(test_health_endpoint)
+    d1 = test_device_discovery()
+    d2 = test_health_endpoint()
     if not d1:
         log.info("")
         log.warning("  \u26a0  Device check failed despite readiness")
@@ -494,7 +475,7 @@ def main():
     # Phase 1b: Standard UPnP verification via miniupnpc
     log.info("")
     log.info("\u2500\u2500 Phase 1b: Standard UPnP (upnpc status) \u2500\u2500")
-    s1 = _run_test(test_upnpc_discovery)
+    s1 = test_upnpc_discovery()
 
     # Phase 2: upnpc port mapping CRUD + forwarding verification
     log.info("")
@@ -502,17 +483,17 @@ def main():
 
     # Use container IP as the internal client so GOST forwards traffic
     # back to this container where the echo server runs.
-    a1 = _run_test(test_add_port_mapping, container_ip)
+    a1 = test_add_port_mapping(container_ip)
     time.sleep(TEST_PAUSE)
 
     if a1:
-        a2 = _run_test(test_verify_via_gost)
+        a2 = test_verify_via_gost()
     else:
         a2 = False
         log.warning("  \u26a0  Skipping GOST verification (add failed)")
     time.sleep(TEST_PAUSE)
 
-    a3 = _run_test(test_list_port_mappings)
+    a3 = test_list_port_mappings()
     time.sleep(TEST_PAUSE)
 
     # Forwarding test: start echo server on TEST_INT_PORT inside python_test,
@@ -524,10 +505,10 @@ def main():
         log.warning("  \u26a0  Skipping forwarding test (add failed)")
     time.sleep(TEST_PAUSE)
 
-    a5 = _run_test(test_delete_port_mapping)
+    a5 = test_delete_port_mapping()
     time.sleep(TEST_PAUSE)
 
-    a6 = _run_test(test_verify_deleted_via_gost)
+    a6 = test_verify_deleted_via_gost()
     a7 = _test_forwarding_stopped(gateway_ip, TEST_EXT_PORT)
 
     # Summary

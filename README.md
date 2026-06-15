@@ -105,6 +105,7 @@ docker run -d \
 | `-e SSDP_NOTIFY_INTERVAL=180` | SSDP 公告间隔（秒） |
 | `-e GOST_API_USERNAME=user` | GOST API 认证用户名（建议项，与 `GOST_API_PASSWORD` 同时设置才生效） |
 | `-e GOST_API_PASSWORD=pass` | GOST API 认证密码 |
+| `-e UPSTREAM_IGD_URL=http://192.168.1.1:5000/rootDesc.xml` | 上游 IGD rootDesc.xml URL（空=禁用）。设置后端口映射自动同步到上游 IGD |
 
 ### 引导脚本 docker.sh
 

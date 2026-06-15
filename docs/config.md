@@ -15,6 +15,7 @@ Global configuration via environment variables. Exposed as class attributes on `
 | `STUN_SERVER` | `stun.l.google.com:19302` | STUN server host and port (for external IP discovery). |
 | `LEASE_DURATION` | `604800` | Default lease duration (seconds) for port mappings. Capped at 604800 (7 days). |
 | `LEASE_CLEANUP_INTERVAL` | `60` | Interval (seconds) between expired lease cleanup scans. |
+| `UPSTREAM_IGD_URL` | `""` | rootDesc.xml URL of an upstream UPnP IGD. When set, AddPortMapping / DeletePortMapping are mirrored to the upstream IGD automatically (silent degradation on failure). |
 | `GOST_API_USERNAME` | `""` | Username for GOST API Basic Auth (both username and password must be set to take effect). |
 | `GOST_API_PASSWORD` | `""` | Password for GOST API Basic Auth. |
 | `GOST_REQUEST_TIMEOUT` | `10` | HTTP request timeout (seconds) for GOST API calls. |

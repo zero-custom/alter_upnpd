@@ -7,6 +7,7 @@ from lxml import etree
 from config import Config
 from gost_client import GostClient, GostConnectionError, GostApiError
 import stun_client
+import upstream_client
 
 logger = logging.getLogger("alter_upnpd.upnp_soap")
 
@@ -204,7 +205,7 @@ class UPnPSOAPHandler:
     def _handle_add_port_mapping(self, params: dict) -> Response:
         external_port_str = params.get("NewExternalPort", "")
         protocol = params.get("NewProtocol", "TCP")
-        internal_client = params.get("NewInternalClient", "")
+        internal_client = params.get("NewInternalClient", "") or request.remote_addr or ""
         internal_port_str = params.get("NewInternalPort", "")
         description = params.get("NewPortMappingDescription",
                                   f"UPnP {protocol} {external_port_str}")
@@ -227,12 +228,22 @@ class UPnPSOAPHandler:
             resp = self.build_fault_response("Port out of range (1-65535)", error_code=715)
             return Response(resp, mimetype="text/xml; charset=utf-8")
 
-        if self.gost.has_port_mapping(external_port, protocol):
+        # ── Security Mode: prevent client from mapping to a different IP ──
+        if Config.SECURE_MODE and internal_client != request.remote_addr:
             logger.warning(
-                "Conflict: port %s/%s already mapped",
-                protocol, external_port,
+                "SECURE: client %s tried to add mapping to %s",
+                request.remote_addr, internal_client,
             )
-            resp = self.build_fault_response("ConflictInMappingEntry", error_code=716)
+            resp = self.build_fault_response("ConflictInMappingEntry", error_code=718)
+            return Response(resp, mimetype="text/xml; charset=utf-8")
+
+        existing = self.gost.get_port_mapping_by_port(external_port, protocol)
+        if existing and existing.get("internal_client", "") != internal_client:
+            logger.warning(
+                "Conflict: port %s/%s already mapped to different client %s",
+                protocol, external_port, existing.get("internal_client", ""),
+            )
+            resp = self.build_fault_response("ConflictInMappingEntry", error_code=718)
             return Response(resp, mimetype="text/xml; charset=utf-8")
 
         lease_duration_str = params.get("NewLeaseDuration", "")
@@ -244,6 +255,39 @@ class UPnPSOAPHandler:
             lease_duration = Config.LEASE_DURATION
         if lease_duration <= 0 or lease_duration > 604800:
             lease_duration = 604800
+
+        # ── Same-client overwrite: update metadata in-place (no delete+recreate) ──
+        if existing:
+            logger.info("Renewing mapping: %s/%s (same client)", protocol, external_port)
+            try:
+                self.gost.update_port_mapping(
+                    external_port=external_port,
+                    internal_port=internal_port,
+                    internal_client=internal_client,
+                    protocol=protocol.lower(),
+                    description=description,
+                    remote_host=remote_host,
+                    enabled=enabled == "1",
+                    lease_duration=lease_duration,
+                )
+                logger.info(
+                    "AddPortMapping renewed: %s/%s -> %s:%s (%s)",
+                    protocol, external_port, internal_client, internal_port, description,
+                )
+                if Config.UPSTREAM_IGD_URL:
+                    upstream_client.add_port_mapping(
+                        external_port=external_port,
+                        protocol=protocol,
+                        description=description,
+                        lease_duration=lease_duration,
+                        remote_host=remote_host,
+                    )
+                resp = self.build_soap_response("AddPortMapping", {})
+                return Response(resp, mimetype="text/xml; charset=utf-8")
+            except (GostConnectionError, GostApiError) as e:
+                logger.error("AddPortMapping renew failed: %s", e)
+                resp = self.build_fault_response(str(e))
+                return Response(resp, mimetype="text/xml; charset=utf-8")
 
         try:
             self.gost.add_port_mapping(
@@ -260,6 +304,14 @@ class UPnPSOAPHandler:
                 "AddPortMapping success: %s/%s -> %s:%s (%s)",
                 protocol, external_port, internal_client, internal_port, description,
             )
+            if Config.UPSTREAM_IGD_URL:
+                upstream_client.add_port_mapping(
+                    external_port=external_port,
+                    protocol=protocol,
+                    description=description,
+                    lease_duration=lease_duration,
+                    remote_host=remote_host,
+                )
             resp = self.build_soap_response("AddPortMapping", {})
             return Response(resp, mimetype="text/xml; charset=utf-8")
         except GostConnectionError as e:
@@ -288,9 +340,25 @@ class UPnPSOAPHandler:
             resp = self.build_fault_response("Port out of range (1-65535)", error_code=715)
             return Response(resp, mimetype="text/xml; charset=utf-8")
 
+        if Config.SECURE_MODE:
+            existing = self.gost.get_port_mapping_by_port(external_port, protocol)
+            if existing and existing.get("internal_client", "") != request.remote_addr:
+                logger.warning(
+                    "SECURE: client %s tried to delete %s/%s owned by %s",
+                    request.remote_addr, protocol, external_port,
+                    existing.get("internal_client", ""),
+                )
+                resp = self.build_fault_response("NoSuchEntryInArray", error_code=714)
+                return Response(resp, mimetype="text/xml; charset=utf-8")
+
         try:
             self.gost.delete_port_mapping(external_port, protocol=protocol.lower())
             logger.info("DeletePortMapping success: %s/%s", protocol, external_port)
+            if Config.UPSTREAM_IGD_URL:
+                upstream_client.delete_port_mapping(
+                    external_port=external_port,
+                    protocol=protocol,
+                )
             resp = self.build_soap_response("DeletePortMapping", {})
             return Response(resp, mimetype="text/xml; charset=utf-8")
         except (GostConnectionError, GostApiError) as e:
@@ -415,7 +483,7 @@ class UPnPSOAPHandler:
     @soap_action("GetNATRSIPStatus")
     def _handle_get_nat_rsip_status(self, params: dict = None) -> Response:
         resp = self.build_soap_response("GetNATRSIPStatus", {
-            "NewRSIPAvailable": "1",
+            "NewRSIPAvailable": "0",
             "NewNATEnabled": "1",
         })
         return Response(resp, mimetype="text/xml; charset=utf-8")
@@ -423,19 +491,19 @@ class UPnPSOAPHandler:
     @soap_action("SetConnectionType")
     def _handle_set_connection_type(self, params: dict = None) -> Response:
         logger.warning("SetConnectionType called but not supported (always IP_Routed)")
-        resp = self.build_fault_response("Action not authorized", error_code=606)
+        resp = self.build_fault_response("Action failed", error_code=501)
         return Response(resp, mimetype="text/xml; charset=utf-8")
 
     @soap_action("RequestConnection")
     def _handle_request_connection(self, params: dict = None) -> Response:
         logger.warning("RequestConnection called but not needed (always Connected)")
-        resp = self.build_fault_response("Action not authorized", error_code=606)
+        resp = self.build_fault_response("Action failed", error_code=501)
         return Response(resp, mimetype="text/xml; charset=utf-8")
 
     @soap_action("ForceTermination")
     def _handle_force_termination(self, params: dict = None) -> Response:
         logger.warning("ForceTermination called but not supported (always Connected)")
-        resp = self.build_fault_response("Action not authorized", error_code=606)
+        resp = self.build_fault_response("Action failed", error_code=501)
         return Response(resp, mimetype="text/xml; charset=utf-8")
 
 

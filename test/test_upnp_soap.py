@@ -103,7 +103,9 @@ class TestBuildFaultResponse:
 
 class TestAddPortMapping:
     def test_success(self, handler, mock_gost, app):
-        mock_gost.has_port_mapping.return_value = False
+        from upnp_soap import Config as SoapConfig
+        SoapConfig.SECURE_MODE = False
+        mock_gost.get_port_mapping_by_port.return_value = None
         mock_gost.add_port_mapping.return_value = {"code": 0}
         with app.test_request_context():
             resp = handler._handle_add_port_mapping({
@@ -142,7 +144,9 @@ class TestAddPortMapping:
             assert b"Invalid port number" in resp.data
 
     def test_conflict_returns_fault(self, handler, mock_gost, app):
-        mock_gost.has_port_mapping.return_value = True
+        from upnp_soap import Config as SoapConfig
+        SoapConfig.SECURE_MODE = False
+        mock_gost.get_port_mapping_by_port.return_value = {"internal_client": "10.0.0.1"}
         with app.test_request_context():
             resp = handler._handle_add_port_mapping({
                 "NewExternalPort": "8080",
@@ -158,6 +162,8 @@ class TestAddPortMapping:
 
 class TestDeletePortMapping:
     def test_success(self, handler, mock_gost, app):
+        from upnp_soap import Config as SoapConfig
+        SoapConfig.SECURE_MODE = False
         mock_gost.delete_port_mapping.return_value = {"code": 0}
         with app.test_request_context():
             resp = handler._handle_delete_port_mapping({
@@ -310,10 +316,11 @@ class TestDispatchIntegration:
     def _disable_acl():
         from upnp_soap import Config
         Config.ACL_ENABLED = False
+        Config.SECURE_MODE = False
 
     def test_add_port_mapping_via_dispatch(self, handler, mock_gost, app):
         self._disable_acl()
-        mock_gost.has_port_mapping.return_value = False
+        mock_gost.get_port_mapping_by_port.return_value = None
         mock_gost.add_port_mapping.return_value = {"code": 0}
         with app.test_request_context(
             method="POST",
@@ -362,7 +369,7 @@ class TestDispatchIntegration:
 
     def test_dispatch_add_missing_fields(self, handler, mock_gost, app):
         self._disable_acl()
-        mock_gost.has_port_mapping.return_value = False
+        mock_gost.get_port_mapping_by_port.return_value = None
         mock_gost.add_port_mapping.return_value = {"code": 0}
         with app.test_request_context(
             method="POST",

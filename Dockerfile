@@ -2,7 +2,7 @@ FROM python:3.14-alpine AS builder
 
 WORKDIR /build
 
-RUN apk add --no-cache libxml2-dev libxslt-dev gcc musl-dev
+RUN apk add --no-cache libxml2-dev libxslt-dev build-base
 COPY requirements.txt .
 RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
 
@@ -21,7 +21,7 @@ RUN chmod +x docker.sh
 EXPOSE 5000
 
 HEALTHCHECK --interval=5s --start-period=30s --timeout=5s --retries=3 \
-    CMD wget -qO - http://localhost:5000/health | grep -q healthy || exit 1
+    CMD wget -qO - http://127.0.0.1:5000/health | grep -q healthy || exit 1
 
 ENTRYPOINT ["/app/docker.sh"]
 CMD ["gunicorn", "-c", "gunicorn_config.py", "app:application"]

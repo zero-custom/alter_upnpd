@@ -4,3 +4,4 @@ requests>=2.31,<3
 lxml>=5,<7
 ssdp>=1,<2
 py3stun>=0.1.1,<1
+miniupnpc>=2.3,<3

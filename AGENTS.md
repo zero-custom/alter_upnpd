@@ -1,6 +1,6 @@
 # alter_upnpd - PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-06-09
+**Generated:** 2026-06-14
 
 ## OVERVIEW
 UPnP IGD (Internet Gateway Device) 前端网关，将 UPnP 端口转发 SOAP 请求转换为 GOST REST API 调用。
@@ -18,6 +18,7 @@ alter_upnpd/
 │   ├── gost_client.py       # GOST API CRUD 客户端（异常+重试+缓存+租赁过期）
 │   ├── ssdp_responder.py    # SSDP 发现协议（端口 1900，多播）
 │   ├── stun_client.py       # STUN 外网 IP 发现（py3stun）
+│   ├── upstream_client.py   # 上游 IGD 客户端（端口映射同步）
 │   ├── upnp_soap.py         # SOAP 动作处理器（ACL+IPConn+CIC+L3F）
 │   ├── gunicorn_config.py   # WSGI 生命周期钩子
 │   └── xml/                 # UPnP 设备描述模板（Jinja2）
@@ -32,7 +33,7 @@ alter_upnpd/
 │   ├── test_stun.py
 │   └── test_upnp_soap.py
 ├── docs/                    # 文档（中英双语）
-│   ├── agents/              # Agent 技能配置
+│   ├── agents/              # Agent 技能配置  ##不要公开与项目开发无关内容
 │   ├── upnp-compliance-audit.md  # UPnP 规范合规审计报告
 │   ├── app.md / app.zh.md
 │   ├── config.md / config.zh.md
@@ -61,6 +62,7 @@ alter_upnpd/
 | GOST API 查询 | gost_client.py → `get_port_mappings` / `get_port_mapping_by_index` / `has_port_mapping` |
 | 租赁过期清理 | gost_client.py → `get_expired_services` / app.py → `run_lease_cleanup` |
 | STUN 外网 IP | stun_client.py → `init()` / `get_wan_ip()` |
+| 上游 IGD 同步 | upstream_client.py → `init()` / `add_port_mapping()` / `delete_port_mapping()` |
 | SSDP NOTIFY 公告 | ssdp_responder.py → `SSDPResponder._send_alive` / `_send_byebye` |
 | SSDP M-SEARCH 响应 | ssdp_responder.py → `SSDPHandler._send_search_response` |
 | SOAP 路由入口 | app.py → `/ctl/IPConn`, `CmnIfCfg`, `L3F`, `WANPPPCn` |
@@ -155,6 +157,7 @@ docker compose up -d gost alter_upnpd
 | `STUN_SERVER` | `stun.l.google.com:19302` | STUN 服务器 |
 | `LEASE_DURATION` | `604800` | 租赁时长上限（秒） |
 | `LEASE_CLEANUP_INTERVAL` | `60` | 过期清理间隔（秒） |
+| `UPSTREAM_IGD_URL` | `""` | 上游 IGD rootDesc.xml URL（空=禁用） |
 
 ## NOTES
 - SSDP 使用 `ssdp` 库（不是 Flask-Evil-SSDP 重构）
@@ -163,3 +166,5 @@ docker compose up -d gost alter_upnpd
 - 路由 `/ctl/WANPPPCn` 与 `/ctl/IPConn` 共享同一处理器
 - GostClient 内置重试（3 次）和缓存，缓存增删改操作后自动失效
 - gunicorn_config.py 生命周期钩子管理 SSDP/租赁清理线程
+- upstream_client.py 通过 `UPSTREAM_IGD_URL` 配置上游 IGD 的 rootDesc.xml URL，自动发现 WANIPConnection 控制端点
+- 上游 IGD 不可达时静默降级——不影响下游 GOST 映射的正常使用

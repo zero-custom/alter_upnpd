@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import fcntl
 import logging
 import os
@@ -15,6 +16,14 @@ USN = "uuid:ed8d683a-91ea-402b-9c25-d0a48f23e9d7"
 
 MCAST_GROUP = "239.255.255.250"
 SSDP_PORT = 1900
+
+# ── UPnP device lifecycle identifiers ──
+BOOT_ID = int(time.time())  # increment per boot, use timestamp as unique boot ID
+CONFIG_ID = 1               # static — no runtime config changes
+
+def _upnp_date() -> str:
+    """RFC 1123 date string for SSDP DATE header."""
+    return datetime.datetime.now(datetime.UTC).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
 def _headers(headers: dict) -> list:
 
@@ -113,17 +122,24 @@ class SSDPResponder:
             for transport in transports:
                 transport.close()
 
-    def _send_alive(self, transport):
-        notify = messages.SSDPRequest("NOTIFY")
-        notify.headers = _headers({
+    def _notify_headers(self, nt: str, usn: str, nts: str) -> list:
+        return _headers({
             "HOST": f"{network.MULTICAST_ADDRESS_IPV4}:{network.PORT}",
-            "NT": "upnp:rootdevice",
-            "NTS": "ssdp:alive",
-            "USN": f"{USN}::upnp:rootdevice",
+            "NT": nt,
+            "NTS": nts,
+            "USN": usn,
             "LOCATION": self.location,
             "CACHE-CONTROL": f"max-age={Config.SSDP_CACHE_CONTROL}",
             "SERVER": Config.SERVER_ID,
+            "BOOTID.UPNP.ORG": str(BOOT_ID),
+            "CONFIGID.UPNP.ORG": str(CONFIG_ID),
         })
+
+    def _send_alive(self, transport):
+        notify = messages.SSDPRequest("NOTIFY")
+        notify.headers = self._notify_headers(
+            "upnp:rootdevice", f"{USN}::upnp:rootdevice", "ssdp:alive",
+        )
         try:
             notify.sendto(transport, (network.MULTICAST_ADDRESS_IPV4, network.PORT))
             self._send_alive_services(transport)
@@ -150,15 +166,7 @@ class SSDPResponder:
         ]
         for nt, usn in services:
             notify = messages.SSDPRequest("NOTIFY")
-            notify.headers = _headers({
-                "HOST": f"{network.MULTICAST_ADDRESS_IPV4}:{network.PORT}",
-                "NT": nt,
-                "NTS": "ssdp:alive",
-                "USN": usn,
-                "LOCATION": self.location,
-                "CACHE-CONTROL": f"max-age={Config.SSDP_CACHE_CONTROL}",
-                "SERVER": Config.SERVER_ID,
-            })
+            notify.headers = self._notify_headers(nt, usn, "ssdp:alive")
             notify.sendto(transport, (network.MULTICAST_ADDRESS_IPV4, network.PORT))
 
     def _send_byebye(self, transport):
@@ -181,15 +189,7 @@ class SSDPResponder:
         ]
         for nt, usn in services:
             notify = messages.SSDPRequest("NOTIFY")
-            notify.headers = _headers({
-                "HOST": f"{network.MULTICAST_ADDRESS_IPV4}:{network.PORT}",
-                "NT": nt,
-                "NTS": "ssdp:byebye",
-                "USN": usn,
-                "LOCATION": self.location,
-                "CACHE-CONTROL": f"max-age={Config.SSDP_CACHE_CONTROL}",
-                "SERVER": Config.SERVER_ID,
-            })
+            notify.headers = self._notify_headers(nt, usn, "ssdp:byebye")
             try:
                 notify.sendto(transport, (network.MULTICAST_ADDRESS_IPV4, network.PORT))
             except Exception as e:
@@ -233,20 +233,33 @@ class SSDPHandler(aio.SimpleServiceDiscoveryProtocol):
             logger.debug("M-SEARCH received ST=%s from %s", st, addr)
             self._send_search_response(st, addr)
 
-    def _send_search_response(self, st: str, addr: tuple):
+    def _make_search_response(self, st: str, usn: str) -> messages.SSDPResponse:
         response = messages.SSDPResponse(200, "OK")
-        usn = self._ST_USN_MAP.get(st, USN)
         response.headers = _headers({
             "CACHE-CONTROL": f"max-age={Config.SSDP_CACHE_CONTROL}",
-            "DATE": "",
+            "DATE": _upnp_date(),
             "LOCATION": self.location,
             "SERVER": Config.SERVER_ID,
             "ST": st,
             "USN": usn,
             "EXT": "",
+            "BOOTID.UPNP.ORG": str(BOOT_ID),
+            "CONFIGID.UPNP.ORG": str(CONFIG_ID),
         })
+        return response
+
+    def _send_search_response(self, st: str, addr: tuple):
         try:
-            response.sendto(self.transport, addr)
-            logger.debug("Sent M-SEARCH response to %s for ST=%s", addr, st)
+            if st == "ssdp:all":
+                for entry_st, entry_usn in self._ST_USN_MAP.items():
+                    resp = self._make_search_response(entry_st, entry_usn)
+                    resp.sendto(self.transport, addr)
+                logger.debug("Sent %d M-SEARCH responses for ssdp:all to %s",
+                             len(self._ST_USN_MAP), addr)
+            else:
+                usn = self._ST_USN_MAP.get(st, USN)
+                resp = self._make_search_response(st, usn)
+                resp.sendto(self.transport, addr)
+                logger.debug("Sent M-SEARCH response to %s for ST=%s", addr, st)
         except Exception as e:
             logger.error("Failed to respond to M-SEARCH: %s", e)
