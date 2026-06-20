@@ -15,7 +15,7 @@ Callers use `try/except` blocks. `get_services()` and `is_available()` catch exc
 
 ## `GostClient`
 
-Instance per application. Holds a TTL-less service cache (`_services_cache`) that is cleared on every write operation (add/delete).
+Instance per application. Holds a service cache (`_services_cache`) with a 30-second TTL. The cache is cleared on every write operation (add/update/delete) and automatically expired after 30 seconds, ensuring GOST restarts are detected promptly.
 
 ## Methods
 

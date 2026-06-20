@@ -28,6 +28,7 @@ This module is a pure executor — it does not decide whether forwarding should 
 | Env Var | Default | Description |
 |---|---|---|
 | `UPSTREAM_IGD_URL` | `""` | Upstream IGD rootDesc.xml URL. Empty = disabled. |
+| `UPSTREAM_INTERNAL_HOST` | `""` | Override `NewInternalClient` sent to upstream IGD. Empty = let upstream IGD auto-fill the SOAP source IP. |
 
 ## Functions
 
@@ -41,5 +42,5 @@ This module is a pure executor — it does not decide whether forwarding should 
 
 - **Lazy initialization**: miniupnpc client is created on the first actual port mapping call, not at import or startup time.
 - **Silent degradation**: Upstream failures are logged as warnings; GOST-side mappings are unaffected.
-- **NewInternalClient**: Left empty on purpose. The upstream IGD (miniupnpd default build) fills the SOAP request source IP — which is the alter_upnpd host.
+- **NewInternalClient**: Left empty by default. The upstream IGD (miniupnpd default build) fills the SOAP request source IP — which is the alter_upnpd host. Set `UPSTREAM_INTERNAL_HOST` to override the `NewInternalClient` value when a different internal host is needed.
 - **Port mapping symmetry**: The upstream mapping uses the same external port as the GOST mapping.

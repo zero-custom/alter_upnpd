@@ -19,17 +19,20 @@ def add_port_mapping(
     if _upnp is None:
         return
 
+    internal_host = Config.UPSTREAM_INTERNAL_HOST or ""
+
     try:
         _upnp.addportmapping(
             external_port,
             protocol,
-            "",
+            internal_host,
             external_port,
             description,
             remote_host,
             lease_duration,
         )
-        logger.debug("Upstream AddPortMapping OK: %s/%s", protocol, external_port)
+        logger.debug("Upstream AddPortMapping OK: %s/%s  internal_host=%s",
+                      protocol, external_port, internal_host)
     except Exception as e:
         logger.warning("Upstream AddPortMapping failed: %s/%s  %s",
                         protocol, external_port, e)

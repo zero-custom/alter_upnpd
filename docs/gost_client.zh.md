@@ -15,7 +15,7 @@
 
 ## `GostClient`
 
-每个应用一个实例。持有 TTL 为无限的服务缓存（`_services_cache`），每次写操作（add/delete）时清空。
+每个应用一个实例。持有 TTL 为 30 秒的服务缓存（`_services_cache`），每次写操作（add/update/delete）时清空，30 秒后自动过期，确保 GOST 重启后能被及时发现。
 
 ## 方法
 

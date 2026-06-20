@@ -16,6 +16,7 @@ Global configuration via environment variables. Exposed as class attributes on `
 | `LEASE_DURATION` | `604800` | Default lease duration (seconds) for port mappings. Capped at 604800 (7 days). |
 | `LEASE_CLEANUP_INTERVAL` | `60` | Interval (seconds) between expired lease cleanup scans. |
 | `UPSTREAM_IGD_URL` | `""` | rootDesc.xml URL of an upstream UPnP IGD. When set, AddPortMapping / DeletePortMapping are mirrored to the upstream IGD automatically (silent degradation on failure). |
+| `UPSTREAM_INTERNAL_HOST` | `""` | Override the `NewInternalClient` sent to the upstream IGD when mirroring port mappings. Empty = let upstream IGD auto-fill the SOAP source IP. |
 | `GOST_API_USERNAME` | `""` | Username for GOST API Basic Auth (both username and password must be set to take effect). |
 | `GOST_API_PASSWORD` | `""` | Password for GOST API Basic Auth. |
 | `GOST_REQUEST_TIMEOUT` | `10` | HTTP request timeout (seconds) for GOST API calls. |

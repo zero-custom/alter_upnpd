@@ -35,6 +35,9 @@ services:
       - LEASE_DURATION=604800
       - LEASE_CLEANUP_INTERVAL=60
       - STUN_SERVER=stun.l.google.com:19302
+      # 上游 IGD 配置（可选）
+      # - UPSTREAM_IGD_URL=http://192.168.1.1/rootDesc.xml
+      # - UPSTREAM_INTERNAL_HOST=192.168.1.100
       # GOST API 认证（建议项，与 GOST 服务端 auth 配合使用）
       # - GOST_API_USERNAME=myuser
       # - GOST_API_PASSWORD=mypass

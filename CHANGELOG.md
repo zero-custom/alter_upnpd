@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.1 (2026-06-20)
+
+### Added
+- `UPSTREAM_INTERNAL_HOST` 环境变量：同步端口映射到上游 IGD 时，可覆写 `NewInternalClient` 字段。为空时保持原有行为（上游 IGD 自动填入 SOAP 请求来源 IP）。
+
+### Fixed
+- **GOST 重启后自动恢复失效**：`GostClient._services_cache` 无 TTL 过期机制，GOST 重启后 alter_upnpd 持续返回过期缓存。修复：缓存改为 30 秒 TTL 自动过期（add/update/delete 操作仍即时清空缓存），确保 GOST 重启后能被及时发现并触发自动重新添加。
+
+---
+
 ## 1.1.0 (2026-06-14)
 
 ### Added

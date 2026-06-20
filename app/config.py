@@ -27,6 +27,7 @@ class Config:
 
     # ── Upstream IGD ──
     UPSTREAM_IGD_URL = os.environ.get("UPSTREAM_IGD_URL", "")
+    UPSTREAM_INTERNAL_HOST = os.environ.get("UPSTREAM_INTERNAL_HOST", "")
 
     # ── GOST Client ──
     GOST_API_URL = os.environ.get("GOST_API_URL", "http://127.0.0.1:8000")
@@ -41,7 +42,7 @@ class Config:
     STUN_RETRIES = 4
     STUN_REFRESH_INTERVAL = 86400
     FALLBACK_WAN_IP = "192.0.2.1"
-    VERSION = "1.1.0"
+    VERSION = "1.1.1"
     SHUTDOWN_TIMEOUT = 5
     WSGI_WORKERS = 1
     WSGI_TIMEOUT = 30

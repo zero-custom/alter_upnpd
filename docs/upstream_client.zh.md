@@ -28,6 +28,7 @@ upnp_soap.py:
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
 | `UPSTREAM_IGD_URL` | `""` | 上游 IGD 的 rootDesc.xml URL。空 = 禁用。 |
+| `UPSTREAM_INTERNAL_HOST` | `""` | 同步端口映射到上游 IGD 时，覆写 `NewInternalClient` 字段。空 = 让上游 IGD 自动填入 SOAP 请求来源 IP。 |
 
 ## 函数
 
@@ -41,5 +42,5 @@ upnp_soap.py:
 
 - **惰性初始化**：miniupnpc 客户端在首次实际端口映射调用时创建，而非导入或启动时。
 - **静默降级**：上游失败仅记 warning，不影响 GOST 侧映射。
-- **NewInternalClient**：刻意留空。上游 IGD（miniupnpd 默认编译）自动填入 SOAP 请求来源 IP——即 alter_upnpd 宿主机。
+- **NewInternalClient**：默认留空，上游 IGD（miniupnpd 默认编译）自动填入 SOAP 请求来源 IP——即 alter_upnpd 宿主机。设置 `UPSTREAM_INTERNAL_HOST` 可覆写 `NewInternalClient` 值，用于需要指定不同内部主机地址的场景。
 - **映射对称**：上游映射使用与 GOST 映射相同的外部端口。

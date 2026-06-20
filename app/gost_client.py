@@ -41,6 +41,8 @@ class GostClient:
         self.base_url = base_url
         self.timeout = Config.GOST_REQUEST_TIMEOUT
         self._services_cache: Optional[List[Dict[str, Any]]] = None
+        self._services_cache_ts: float = 0
+        self._services_cache_ttl: int = 30
 
     # ── Connectivity ──
 
@@ -122,11 +124,14 @@ class GostClient:
     # ── Service read ──
 
     def get_services(self) -> List[Dict[str, Any]]:
-        if self._services_cache is not None:
+        now = time.time()
+        if self._services_cache is not None and now - self._services_cache_ts < self._services_cache_ttl:
             return self._services_cache
+        self._services_cache = None
         try:
             result = self._request("GET", "/config/services")
             self._services_cache = self._extract_services(result)
+            self._services_cache_ts = time.time()
             return self._services_cache
         except (GostConnectionError, GostApiError):
             return []
