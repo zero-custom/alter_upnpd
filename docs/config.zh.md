@@ -19,5 +19,8 @@
 | `UPSTREAM_INTERNAL_HOST` | `""` | 同步端口映射到上游 IGD 时，覆写 `NewInternalClient` 字段。空 = 让上游 IGD 自动填入 SOAP 请求来源 IP。 |
 | `GOST_API_USERNAME` | `""` | GOST API Basic Auth 用户名（需同时设置用户名和密码才生效）。 |
 | `GOST_API_PASSWORD` | `""` | GOST API Basic Auth 密码。 |
+| `GOST_METRICS_URL` | `""` | Prometheus metrics URL，用于实时带宽/连接统计。空 = 从 GOST API `/metrics` 端点自动发现。 |
+| `GOST_WEBUI_REFRESH_INTERVAL` | `10` | 仪表板刷新间隔（秒）。 |
+| `GOST_WEBUI_HISTORY_POINTS` | `8640` | 每端口存储的流量图表数据点上限。 |
 | `GOST_REQUEST_TIMEOUT` | `10` | GOST API HTTP 请求超时（秒）。 |
 | `GOST_RETRIES` | `2` | GOST API 连接/超时错误的重试次数（指数退避）。 |

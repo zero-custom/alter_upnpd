@@ -3,7 +3,7 @@ import os
 import signal
 import threading
 import socket
-from flask import Flask, Response, jsonify
+from flask import Flask, Response, jsonify, send_from_directory
 from jinja2 import Template
 
 from config import Config
@@ -12,12 +12,23 @@ from upnp_soap import UPnPSOAPHandler
 from ssdp_responder import SSDPResponder
 import stun_client
 
+from pywebio.platform.flask import webio_view
+from pywebio import STATIC_PATH as PW_STATIC
+from webui import main as webui_main
+from static_bp import static_bp
+
 logger = logging.getLogger("alter_upnpd")
 
 VERSION = Config.VERSION
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024
+
+app.add_url_rule(
+    "/", "webui", webio_view(webui_main, cdn=False),
+    methods=["GET", "POST", "OPTIONS"],
+)
+app.register_blueprint(static_bp)
 
 gost_client = GostClient(Config.GOST_API_URL)
 soap_handler = UPnPSOAPHandler(gost_client)
@@ -126,11 +137,10 @@ def ctl_wan_pppcn():
 def static_files(filename):
     if filename.endswith(".xml"):
         return Response(render_xml(filename), content_type="text/xml; charset=utf-8")
+    pw_path = os.path.join(PW_STATIC, filename)
+    if os.path.exists(pw_path):
+        return send_from_directory(PW_STATIC, filename)
     return "Not Found", 404
-
-@app.route("/")
-def index():
-    return f"alter_upnpd UPnP IGD - Port: {get_local_ip()}:{get_local_port()}"
 
 @app.route("/health")
 def health():

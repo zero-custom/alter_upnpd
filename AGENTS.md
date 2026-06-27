@@ -1,6 +1,6 @@
 # alter_upnpd - PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-06-14
+**Generated:** 2026-06-26
 
 ## OVERVIEW
 UPnP IGD (Internet Gateway Device) 前端网关，将 UPnP 端口转发 SOAP 请求转换为 GOST REST API 调用。
@@ -13,25 +13,30 @@ Python 3.11 + Flask，无外部数据库依赖。
 alter_upnpd/
 ├── app/                     # 主程序
 │   ├── docker.sh            # Alpine 容器入口脚本（容器环境初始化）
-│   ├── app.py               # Flask 路由 + 入口点 + 后台服务生命周期
+│   ├── app.py               # Flask 路由 + 入口点 + 后台服务生命周期 + PyWebIO WebUI
 │   ├── config.py            # 环境变量配置类
 │   ├── gost_client.py       # GOST API CRUD 客户端（异常+重试+缓存+租赁过期）
 │   ├── ssdp_responder.py    # SSDP 发现协议（端口 1900，多播）
 │   ├── stun_client.py       # STUN 外网 IP 发现（py3stun）
 │   ├── upstream_client.py   # 上游 IGD 客户端（端口映射同步）
 │   ├── upnp_soap.py         # SOAP 动作处理器（ACL+IPConn+CIC+L3F）
+│   ├── webui.py             # PyWebIO + ECharts 监控仪表板（路由 /）
+│   ├── echarts_check.py     # ECharts CDN 版本校验
+│   ├── static_bp.py         # 本地静态资源 Flask Blueprint
+│   ├── static/              # 本地静态文件（echarts.min.js）
 │   ├── gunicorn_config.py   # WSGI 生命周期钩子
 │   └── xml/                 # UPnP 设备描述模板（Jinja2）
 │       ├── rootDesc.xml
 │       ├── L3F.xml
 │       ├── WANCfg.xml
 │       └── WANIPCn.xml
-├── test/                    # 测试（96 个用例）
+├── test/                    # 测试（161+ 用例）
 │   ├── conftest.py
 │   ├── test_app.py
 │   ├── test_gost_client.py
 │   ├── test_stun.py
-│   └── test_upnp_soap.py
+│   ├── test_upnp_soap.py
+│   └── test_webui.py
 ├── docs/                    # 文档（中英双语）
 │   ├── agents/              # Agent 技能配置  ##不要公开与项目开发无关内容
 │   ├── upnp-compliance-audit.md  # UPnP 规范合规审计报告
@@ -67,6 +72,10 @@ alter_upnpd/
 | SSDP M-SEARCH 响应 | ssdp_responder.py → `SSDPHandler._send_search_response` |
 | SOAP 路由入口 | app.py → `/ctl/IPConn`, `CmnIfCfg`, `L3F`, `WANPPPCn` |
 | 健康检查 | app.py → `/health` |
+| WebUI 仪表板 | webui.py → `main()` |
+| 表格渲染 | webui.py → `_render_table()` |
+| 流量图表 | webui.py → `_build_echarts_html()` |
+| 批量删除 | webui.py → `_delete_selected()` |
 | WSGI 生命周期 | gunicorn_config.py → `on_starting`, `post_worker_init`, `worker_exit` |
 
 ## CONVENTIONS
@@ -90,7 +99,7 @@ alter_upnpd/
 | `/ctl/CmnIfCfg` | POST | 接口配置查询 | `soap_handler.handle_wancommonifconfig()` |
 | `/ctl/L3F` | POST | 转发服务配置 | `soap_handler.handle_l3forwarding()` |
 | `/health` | GET | 健康检查 JSON | 返回状态/版本/GOST 连接/映射数 |
-| `/` | GET | 状态页面 | 返回纯文本状态 |
+| `/` | GET/POST | WebUI 仪表板 | `webio_view(webui_main)` — PyWebIO 全功能 UI |
 
 ## UPnP IMPLEMENTATION STATUS
 
@@ -158,6 +167,9 @@ docker compose up -d gost alter_upnpd
 | `LEASE_DURATION` | `604800` | 租赁时长上限（秒） |
 | `LEASE_CLEANUP_INTERVAL` | `60` | 过期清理间隔（秒） |
 | `UPSTREAM_IGD_URL` | `""` | 上游 IGD rootDesc.xml URL（空=禁用） |
+| `GOST_WEBUI_REFRESH_INTERVAL` | `10` | WebUI 刷新间隔（秒） |
+| `GOST_WEBUI_HISTORY_POINTS` | `8640` | 每端口存储的数据点上限 |
+| `GOST_METRICS_URL` | `""` | Prometheus metrics URL（空则自动发现） |
 
 ## NOTES
 - SSDP 使用 `ssdp` 库（不是 Flask-Evil-SSDP 重构）
@@ -168,3 +180,5 @@ docker compose up -d gost alter_upnpd
 - gunicorn_config.py 生命周期钩子管理 SSDP/租赁清理线程
 - upstream_client.py 通过 `UPSTREAM_IGD_URL` 配置上游 IGD 的 rootDesc.xml URL，自动发现 WANIPConnection 控制端点
 - 上游 IGD 不可达时静默降级——不影响下游 GOST 映射的正常使用
+- WebUI 仪表板通过 PyWebIO `webio_view` 注册到 Flask 路由 `/`，ECharts 从本地 `/static/echarts.min` 加载
+- WebUI 使用 GostClient 实例获取实时数据，后台线程每 10 秒增量刷新

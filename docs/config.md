@@ -19,5 +19,8 @@ Global configuration via environment variables. Exposed as class attributes on `
 | `UPSTREAM_INTERNAL_HOST` | `""` | Override the `NewInternalClient` sent to the upstream IGD when mirroring port mappings. Empty = let upstream IGD auto-fill the SOAP source IP. |
 | `GOST_API_USERNAME` | `""` | Username for GOST API Basic Auth (both username and password must be set to take effect). |
 | `GOST_API_PASSWORD` | `""` | Password for GOST API Basic Auth. |
+| `GOST_METRICS_URL` | `""` | Prometheus metrics URL for real-time bandwidth/connection stats. Empty = auto-discovered from GOST API `/metrics` endpoint. |
+| `GOST_WEBUI_REFRESH_INTERVAL` | `10` | Dashboard refresh interval (seconds). |
+| `GOST_WEBUI_HISTORY_POINTS` | `8640` | Max data points stored per port for traffic charts. |
 | `GOST_REQUEST_TIMEOUT` | `10` | HTTP request timeout (seconds) for GOST API calls. |
 | `GOST_RETRIES` | `2` | Number of retry attempts for GOST API connection/timeout errors (exponential backoff). |

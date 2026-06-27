@@ -151,13 +151,16 @@ docker build -t zerocustom/alter_upnpd:latest .
 ```
 ├── app/                     # 主程序
 │   ├── docker.sh            # 容器引导脚本
-│   ├── app.py               # Flask 路由 + 入口点
+│   ├── app.py               # Flask 路由 + 入口点 + PyWebIO WebUI
 │   ├── config.py            # 全局配置集中管理
 │   ├── gost_client.py       # GOST API CRUD 客户端
 │   ├── ssdp_responder.py    # SSDP 发现协议（端口 1900）
 │   ├── stun_client.py       # STUN 外网 IP 发现
 │   ├── upnp_soap.py         # SOAP 动作处理器
+│   ├── webui.py             # PyWebIO + ECharts 监控仪表板
 │   ├── gunicorn_config.py   # WSGI 配置
+│   ├── static_bp.py         # 本地静态资源 Flask Blueprint
+│   ├── static/              # 本地静态文件
 │   └── xml/                 # UPnP 设备描述模板
 ├── test/                    # 测试
 ├── docs/                    # 文档

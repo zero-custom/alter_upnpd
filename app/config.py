@@ -29,10 +29,15 @@ class Config:
     UPSTREAM_IGD_URL = os.environ.get("UPSTREAM_IGD_URL", "")
     UPSTREAM_INTERNAL_HOST = os.environ.get("UPSTREAM_INTERNAL_HOST", "")
 
+    # ── WebUI ──
+    GOST_WEBUI_REFRESH_INTERVAL = int(os.environ.get("GOST_WEBUI_REFRESH_INTERVAL", "10"))
+    GOST_WEBUI_HISTORY_POINTS = int(os.environ.get("GOST_WEBUI_HISTORY_POINTS", "8640"))
+
     # ── GOST Client ──
     GOST_API_URL = os.environ.get("GOST_API_URL", "http://127.0.0.1:8000")
     GOST_API_USERNAME = os.environ.get("GOST_API_USERNAME", "")
     GOST_API_PASSWORD = os.environ.get("GOST_API_PASSWORD", "")
+    GOST_METRICS_URL = os.environ.get("GOST_METRICS_URL", "")
 
     # ── Internal constants (not env-configurable) ──
     GOST_REQUEST_TIMEOUT = 10
@@ -42,7 +47,7 @@ class Config:
     STUN_RETRIES = 4
     STUN_REFRESH_INTERVAL = 86400
     FALLBACK_WAN_IP = "192.0.2.1"
-    VERSION = "1.1.1"
+    VERSION = "1.2.0"
     SHUTDOWN_TIMEOUT = 5
     WSGI_WORKERS = 1
     WSGI_TIMEOUT = 30

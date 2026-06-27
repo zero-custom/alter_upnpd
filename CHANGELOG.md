@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.0 (2026-06-26)
+
+### Added
+- **GOST WebUI 监控仪表板**（`webui.py`）：PyWebIO + ECharts 实时仪表板，路由 `/`，替代旧纯文本状态页面。
+  - **概览卡片**：映射数 / 活动连接 / 总流量 / 错误数四张信息卡
+  - **流量趋势图**：入站/出站带宽 + 连接数折线图（pyecharts + ECharts），默认最近 1 小时，支持拖拽缩放
+  - **端口映射表格**：可展开详情行显示各端口独立流量图表，批量删除复选框
+  - **添加映射表单**：折叠式添加表单（External Port / Protocol / Internal Client / Internal Port / Description / Lease）
+  - **实时刷新**：后台线程每 10 秒增量更新，映射变化时保留选中状态安全重绘
+  - **ECharts 本地化**：ECharts 6.x 从 `/static/echarts.min` 加载（CDN 仅启动时检查）
+- `GOST_WEBUI_REFRESH_INTERVAL` 环境变量（默认 `10` 秒）
+- `GOST_WEBUI_HISTORY_POINTS` 环境变量（默认 `8640`，10 秒间隔 = 24 小时）
+- `GOST_METRICS_URL` 环境变量，配置 Prometheus metrics URL（空 = 自动发现）
+
+### Changed
+- `.env.example` 新增 WebUI 相关环境变量
+
+---
+
 ## 1.1.1 (2026-06-20)
 
 ### Added

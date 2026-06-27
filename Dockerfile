@@ -16,7 +16,10 @@ RUN pip install --no-cache-dir --only-binary :all: --find-links /wheels -r requi
     rm -rf /wheels requirements.txt
 
 COPY app/ .
-RUN chmod +x docker.sh
+RUN chmod +x docker.sh && \
+    mkdir -p /app/static/js && \
+    wget -q -O /app/static/js/echarts.min.js \
+    https://cdn.jsdelivr.net/npm/echarts@6.1.0/dist/echarts.min.js
 
 EXPOSE 5000
 
