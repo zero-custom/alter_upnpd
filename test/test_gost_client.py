@@ -1,12 +1,3 @@
-"""Tests for GostClient — GOST REST API client (merged version).
-
-Mocks requests at the transport layer.  The merged client:
-  - single POST /config/services for add (no chain)
-  - direct name construction for delete (not _find_upnp_service)
-  - metadata-only reads for get_port_mappings
-  - exceptions (not dicts) on errors
-"""
-
 import time
 import pytest
 from unittest.mock import patch, Mock
@@ -257,7 +248,7 @@ class TestGetPortMappings:
             {"name": "svc3", "metadata": {}},
             {"name": "svc4"},
         ]
-        with patch.object(client, "get_services", return_value=services):
+        with patch.object(client.repository, "get_services", return_value=services):
             mappings = client.get_port_mappings()
             assert len(mappings) == 1
             assert mappings[0]["external_port"] == 8080
@@ -280,7 +271,7 @@ class TestGetPortMappings:
                 },
             }
         ]
-        with patch.object(client, "get_services", return_value=services):
+        with patch.object(client.repository, "get_services", return_value=services):
             m = client.get_port_mappings()[0]
             assert m["remote_host"] == "192.168.1.1"
             assert m["external_port"] == 8080
@@ -309,7 +300,7 @@ class TestGetPortMappings:
                 },
             }
         ]
-        with patch.object(client, "get_services", return_value=services):
+        with patch.object(client.repository, "get_services", return_value=services):
             m = client.get_port_mappings()[0]
             assert m["protocol"] == "UDP"
 
@@ -336,7 +327,7 @@ class TestGetPortMappings:
                 },
             }
         ]
-        with patch.object(client, "get_services", return_value=services):
+        with patch.object(client.repository, "get_services", return_value=services):
             m = client.get_port_mappings()[0]
             assert m["lease_duration_remaining"] <= 3500
             assert m["lease_duration_remaining"] > 3490
@@ -347,7 +338,7 @@ class TestGetPortMappings:
 
 class TestGetPortMappingByIndex:
     def test_valid_index(self, client):
-        with patch.object(client, "get_port_mappings", return_value=[
+        with patch.object(client.repository, "get_port_mappings", return_value=[
             {"external_port": 8080},
             {"external_port": 9090},
         ]):
@@ -406,7 +397,7 @@ class TestHelpers:
             assert client.is_available() is False
 
     def test_has_port_mapping_true(self, client):
-        with patch.object(client, "get_port_mappings", return_value=[
+        with patch.object(client.repository, "get_port_mappings", return_value=[
             {"external_port": 8080, "protocol": "TCP"},
         ]):
             assert client.has_port_mapping(8080, "tcp") is True
@@ -442,7 +433,7 @@ class TestHelpers:
             },
             {"name": "s3", "metadata": {"upnp": False}},
         ]
-        with patch.object(client, "get_services", return_value=services):
+        with patch.object(client.repository, "get_services", return_value=services):
             expired = client.get_expired_services()
             assert len(expired) == 1
             assert expired[0]["external_port"] == 8080

@@ -1,16 +1,19 @@
 import logging
 import os
 import signal
-import threading
 import socket
-from flask import Flask, Response, jsonify, send_from_directory
-from jinja2 import Template
 
-from config import Config
+from flask import Flask, Response, jsonify, send_from_directory
+
+from app_health import HealthService
+from config import AppConfig, EnvConfig, load_env_config
 from gost_client import GostClient
+from lifecycle import AppLifecycle
+from stun_client import StunClient
+from template import TemplateRenderer
+from upstream_client import UpstreamClient
 from upnp_soap import UPnPSOAPHandler
-from ssdp_responder import SSDPResponder
-import stun_client
+import webui
 
 from pywebio.platform.flask import webio_view
 from pywebio import STATIC_PATH as PW_STATIC
@@ -19,34 +22,21 @@ from static_bp import static_bp
 
 logger = logging.getLogger("alter_upnpd")
 
-VERSION = Config.VERSION
+cfg: EnvConfig = load_env_config()
+
+VERSION = AppConfig.VERSION
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024
 
-app.add_url_rule(
-    "/", "webui", webio_view(webui_main, cdn=False),
-    methods=["GET", "POST", "OPTIONS"],
-)
-app.register_blueprint(static_bp)
-
-gost_client = GostClient(Config.GOST_API_URL)
-soap_handler = UPnPSOAPHandler(gost_client)
-
 XML_DIR = os.path.join(os.path.dirname(__file__), "xml")
-TEMPLATE_CACHE = {}
-TEMPLATE_CACHE_LOCK = threading.Lock()
-
-_shutdown_event: threading.Event | None = None
-_ssdp_thread: threading.Thread | None = None
-_lease_thread: threading.Thread | None = None
 
 def setup_logging() -> None:
 
     if logging.getLogger().hasHandlers():
         return
     logging.basicConfig(
-        level=logging.DEBUG if Config.DEBUG else logging.INFO,
+        level=logging.DEBUG if cfg.debug else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
@@ -67,54 +57,88 @@ def get_local_ip() -> str:
     return _LOCAL_IP_CACHE
 
 def get_local_port() -> int:
-    return Config.LISTEN_PORT
+    return cfg.listen_port
 
 def get_location() -> str:
     return f"http://{get_local_ip()}:{get_local_port()}/rootDesc.xml"
 
-_TEMPLATE_VARS = {
-    "rootDesc.xml": lambda: {
-        "LOCAL_IP": get_local_ip(),
-        "LOCAL_PORT": get_local_port(),
-    },
-}
+gost_client = GostClient(
+    base_url=cfg.gost_api_url,
+    username=cfg.gost_api_username,
+    password=cfg.gost_api_password,
+    metrics_url=cfg.gost_metrics_url,
+)
+upstream = UpstreamClient(upstream_igd_url=cfg.upstream_igd_url)
 
-def render_xml(template_name: str) -> str:
-    filepath = os.path.join(XML_DIR, template_name)
-    if not os.path.exists(filepath):
-        return "404 Not Found"
+stun_client = StunClient(stun_server=cfg.stun_server) if cfg.stun else None
+if stun_client:
+    stun_client.start()
 
-    mtime = os.path.getmtime(filepath)
+soap_handler = UPnPSOAPHandler(
+    gost_client=gost_client,
+    upstream_client=upstream,
+    acl_enabled=cfg.acl_enabled,
+    secure_mode=cfg.secure_mode,
+    acl_allowed_subnets=cfg.acl_allowed_subnets,
+    lease_duration=cfg.lease_duration,
+    stun_client=stun_client,
+    upstream_igd_url=cfg.upstream_igd_url,
+    upstream_internal_host=cfg.upstream_internal_host,
+)
+webui.init(
+    gost_client=gost_client,
+    refresh_interval=cfg.gost_webui_refresh_interval,
+    history_points=cfg.gost_webui_history_points,
+)
 
-    with TEMPLATE_CACHE_LOCK:
-        cached = TEMPLATE_CACHE.get(template_name)
-        if cached and cached["mtime"] == mtime:
-            template = cached["template"]
-        else:
-            with open(filepath, "r") as f:
-                template = Template(f.read())
-            TEMPLATE_CACHE[template_name] = {"template": template, "mtime": mtime}
-            logger.info("Loaded template: %s (mtime=%s)", template_name, mtime)
+template = TemplateRenderer(XML_DIR)
+template.set_var("rootDesc.xml", lambda: {
+    "LOCAL_IP": get_local_ip(),
+    "LOCAL_PORT": get_local_port(),
+})
 
-    context_fn = _TEMPLATE_VARS.get(template_name)
-    context = context_fn() if context_fn else {}
-    return template.render(**context)
+health_service = HealthService(
+    gost_client=gost_client,
+    version=VERSION,
+    get_local_ip=get_local_ip,
+    get_local_port=get_local_port,
+)
+
+lifecycle = AppLifecycle(
+    gost_client=gost_client,
+    get_location_fn=get_location,
+    ssdp_notify_interval=cfg.ssdp_notify_interval,
+    lease_cleanup_interval=cfg.lease_cleanup_interval,
+    acl_enabled=cfg.acl_enabled,
+    acl_allowed_subnets=cfg.acl_allowed_subnets,
+    version=VERSION,
+)
+
+render_xml = template.render
+init_background_services = lifecycle.start
+shutdown_background_services = lifecycle.stop
+
+app.add_url_rule(
+    "/", "webui", webio_view(webui_main, cdn=False),
+    methods=["GET", "POST", "OPTIONS"],
+)
+app.register_blueprint(static_bp)
 
 @app.route("/rootDesc.xml")
 def root_desc():
-    return Response(render_xml("rootDesc.xml"), content_type="text/xml; charset=utf-8")
+    return Response(template.render("rootDesc.xml"), content_type="text/xml; charset=utf-8")
 
 @app.route("/L3F.xml")
 def l3f():
-    return Response(render_xml("L3F.xml"), content_type="text/xml; charset=utf-8")
+    return Response(template.render("L3F.xml"), content_type="text/xml; charset=utf-8")
 
 @app.route("/WANCfg.xml")
 def wan_cfg():
-    return Response(render_xml("WANCfg.xml"), content_type="text/xml; charset=utf-8")
+    return Response(template.render("WANCfg.xml"), content_type="text/xml; charset=utf-8")
 
 @app.route("/WANIPCn.xml")
 def wan_ipcn():
-    return Response(render_xml("WANIPCn.xml"), content_type="text/xml; charset=utf-8")
+    return Response(template.render("WANIPCn.xml"), content_type="text/xml; charset=utf-8")
 
 @app.route("/ctl/L3F", methods=["POST"])
 def ctl_l3f():
@@ -136,7 +160,7 @@ def ctl_wan_pppcn():
 @app.route("/<path:filename>")
 def static_files(filename):
     if filename.endswith(".xml"):
-        return Response(render_xml(filename), content_type="text/xml; charset=utf-8")
+        return Response(template.render(filename), content_type="text/xml; charset=utf-8")
     pw_path = os.path.join(PW_STATIC, filename)
     if os.path.exists(pw_path):
         return send_from_directory(PW_STATIC, filename)
@@ -144,99 +168,26 @@ def static_files(filename):
 
 @app.route("/health")
 def health():
-    gost_ok = gost_client.is_available()
-
-    if gost_ok:
-        mappings = gost_client.get_port_mappings()
-        mappings_count = len(mappings)
-        status = "healthy"
-    else:
-        mappings_count = 0
-        status = "degraded"
-        logger.warning("GOST API unreachable, health check degraded")
-
-    return jsonify({
-        "status": status,
-        "version": VERSION,
-        "local_ip": get_local_ip(),
-        "local_port": get_local_port(),
-        "gost_api": gost_client.base_url,
-        "gost_connected": gost_ok,
-        "port_mappings_count": mappings_count,
-    })
-
-def run_ssdp(shutdown_event):
-    import asyncio
-    responder = SSDPResponder(get_location(), notify_interval=Config.SSDP_NOTIFY_INTERVAL)
-    asyncio.run(responder.start(shutdown_event))
-
-def run_lease_cleanup(shutdown_event):
-    while not shutdown_event.is_set():
-        expired = gost_client.get_expired_services()
-        for entry in expired:
-            logger.info(
-                "Lease expired: %s/%s, cleaning up",
-                entry["protocol"], entry["external_port"],
-            )
-            try:
-                gost_client.delete_port_mapping(entry["external_port"], entry["protocol"])
-            except Exception as e:
-                logger.warning("Lease cleanup failed for %s: %s", entry["service_name"], e)
-        shutdown_event.wait(Config.LEASE_CLEANUP_INTERVAL)
-
-def init_background_services() -> threading.Event:
-
-    global _shutdown_event, _ssdp_thread, _lease_thread
-
-    logger.info("Starting alter_upnpd v%s on http://%s:%s", VERSION, get_local_ip(), get_local_port())
-    logger.info("Device location: %s", get_location())
-    logger.info("GOST API URL: %s", gost_client.base_url)
-    if Config.ACL_ENABLED:
-        logger.info("ACL enabled, allowed subnets: %s", Config.ACL_ALLOWED_SUBNETS)
-    logger.info("Lease duration: %ds (capped at 604800), cleanup interval: %ds",
-                Config.LEASE_DURATION, Config.LEASE_CLEANUP_INTERVAL)
-
-    if Config.STUN:
-        stun_client.init()
-
-    _shutdown_event = threading.Event()
-
-    _ssdp_thread = threading.Thread(target=run_ssdp, args=(_shutdown_event,), name="ssdp")
-    _ssdp_thread.start()
-
-    _lease_thread = threading.Thread(target=run_lease_cleanup, args=(_shutdown_event,), name="lease-cleanup")
-    _lease_thread.daemon = True
-    _lease_thread.start()
-
-    return _shutdown_event
-
-def shutdown_background_services() -> None:
-
-    global _shutdown_event, _ssdp_thread
-    if _shutdown_event:
-        _shutdown_event.set()
-        logger.info("Shutting down, sending SSDP byebye...")
-        if _ssdp_thread:
-            _ssdp_thread.join(timeout=Config.SHUTDOWN_TIMEOUT)
+    return jsonify(health_service.check())
 
 def main():
     setup_logging()
 
     def handle_signal(sig, frame):
-        if _shutdown_event:
-            _shutdown_event.set()
+        if lifecycle.shutdown_event:
+            lifecycle.shutdown_event.set()
         raise KeyboardInterrupt()
 
     signal.signal(signal.SIGTERM, handle_signal)
 
-    init_background_services()
+    lifecycle.start()
 
     try:
         app.run(host="0.0.0.0", port=get_local_port(), threaded=True)
     except KeyboardInterrupt:
         pass
     finally:
-        shutdown_background_services()
+        lifecycle.stop()
 
 if __name__ == "__main__":
     main()

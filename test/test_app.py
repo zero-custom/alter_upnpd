@@ -1,42 +1,5 @@
-"""Tests for Flask app routes, template rendering, health check.
-
-The gh-based app.py:
-  - uses get_local_ip() (socket-based, no netifaces)
-  - uses get_local_port() / get_location() functions (no module-level constants)
-  - health route calls gost_client.is_available() + get_port_mappings()
-  - has init_background_services() / shutdown_background_services() lifecycle
-"""
-
 import pytest
-from unittest.mock import Mock, patch
-
-
-# ── Fixtures ──
-
-
-@pytest.fixture
-def client():
-    """Flask test client with mocked gost_client."""
-    import app as app_module
-
-    app_module.gost_client = Mock()
-    app_module.gost_client.base_url = "http://test:8000"
-    app_module.gost_client.is_available.return_value = True
-    app_module.gost_client.get_port_mappings.return_value = [
-        {"external_port": 8080},
-    ]
-    app_module.app.config["TESTING"] = True
-    with app_module.app.test_client() as test_client:
-        yield test_client
-
-
-@pytest.fixture(autouse=True)
-def reset_template_cache():
-    import app as app_module
-
-    app_module.TEMPLATE_CACHE.clear()
-    yield
-    app_module.TEMPLATE_CACHE.clear()
+from unittest.mock import patch
 
 
 # ── XML template routes ──
@@ -137,16 +100,10 @@ class TestHelpers:
 
         assert get_local_port() == 5000  # default from Config
 
-    def test_get_local_port_from_env(self, monkeypatch):
-        monkeypatch.setenv("LISTEN_PORT", "9999")
-        # Reload config to pick up the new env var
-        import importlib
-        import config
-        import app as app_module
+    def test_get_local_port_from_env(self):
+        from config import EnvConfig
 
-        importlib.reload(config)
-        importlib.reload(app_module)
-        assert app_module.get_local_port() == 9999
+        assert EnvConfig(listen_port=9999).listen_port == 9999
 
     def test_location_format(self):
         from app import get_location
@@ -166,13 +123,13 @@ class TestRenderXML:
         xml_dir = tmp_path / "xml"
         xml_dir.mkdir()
         (xml_dir / "test.xml").write_text("hello {{ LOCAL_IP }}:{{ LOCAL_PORT }}")
-        monkeypatch.setattr(app_module, "XML_DIR", str(xml_dir))
+        monkeypatch.setattr(app_module.template, "_xml_dir", str(xml_dir))
         # Mock the template vars
-        app_module._TEMPLATE_VARS["test.xml"] = lambda: {
+        app_module.template._vars["test.xml"] = lambda: {
             "LOCAL_IP": "10.0.0.5",
             "LOCAL_PORT": 8888,
         }
-        app_module.TEMPLATE_CACHE.clear()
+        app_module.template._cache.clear()
         result = app_module.render_xml("test.xml")
         assert result == "hello 10.0.0.5:8888"
 

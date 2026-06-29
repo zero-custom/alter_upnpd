@@ -8,7 +8,7 @@ import struct
 import time
 from ssdp import aio, messages, network
 
-from config import Config
+from config import SsdpConfig
 
 logger = logging.getLogger("alter_upnpd.ssdp")
 
@@ -17,17 +17,26 @@ USN = "uuid:ed8d683a-91ea-402b-9c25-d0a48f23e9d7"
 MCAST_GROUP = "239.255.255.250"
 SSDP_PORT = 1900
 
+# ── UPnP device/service identifiers (single source of truth) ──
+UPNP_NT_LIST = [
+    "upnp:rootdevice",
+    "urn:schemas-upnp-org:device:InternetGatewayDevice:1",
+    "urn:schemas-upnp-org:device:WANDevice:1",
+    "urn:schemas-upnp-org:device:WANConnectionDevice:1",
+    "urn:schemas-upnp-org:service:Layer3Forwarding:1",
+    "urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1",
+    "urn:schemas-upnp-org:service:WANIPConnection:1",
+    "urn:schemas-upnp-org:service:WANPPPConnection:1",
+]
+
 # ── UPnP device lifecycle identifiers ──
-BOOT_ID = int(time.time())  # increment per boot, use timestamp as unique boot ID
-CONFIG_ID = 1               # static — no runtime config changes
+BOOT_ID = int(time.time())
+CONFIG_ID = 1
+
 
 def _upnp_date() -> str:
-    """RFC 1123 date string for SSDP DATE header."""
     return datetime.datetime.now(datetime.UTC).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
-def _headers(headers: dict) -> list:
-
-    return list(headers.items())
 
 class SSDPResponder:
     def __init__(self, location: str, notify_interval: int = 180):
@@ -36,7 +45,6 @@ class SSDPResponder:
 
     @staticmethod
     def _make_multicast_socket(bind_ip: str) -> socket.socket:
-
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
@@ -123,79 +131,41 @@ class SSDPResponder:
                 transport.close()
 
     def _notify_headers(self, nt: str, usn: str, nts: str) -> list:
-        return _headers({
+        return list({
             "HOST": f"{network.MULTICAST_ADDRESS_IPV4}:{network.PORT}",
             "NT": nt,
             "NTS": nts,
             "USN": usn,
             "LOCATION": self.location,
-            "CACHE-CONTROL": f"max-age={Config.SSDP_CACHE_CONTROL}",
-            "SERVER": Config.SERVER_ID,
+            "CACHE-CONTROL": f"max-age={SsdpConfig.CACHE_CONTROL}",
+            "SERVER": SsdpConfig.SERVER_ID,
             "BOOTID.UPNP.ORG": str(BOOT_ID),
             "CONFIGID.UPNP.ORG": str(CONFIG_ID),
-        })
+        }.items())
 
     def _send_alive(self, transport):
-        notify = messages.SSDPRequest("NOTIFY")
-        notify.headers = self._notify_headers(
-            "upnp:rootdevice", f"{USN}::upnp:rootdevice", "ssdp:alive",
-        )
-        try:
-            notify.sendto(transport, (network.MULTICAST_ADDRESS_IPV4, network.PORT))
-            self._send_alive_services(transport)
-            logger.debug("Sent NOTIFY alive for rootdevice")
-        except Exception as e:
-            logger.error("Failed to send NOTIFY: %s", e)
-
-    def _send_alive_services(self, transport):
-        services = [
-            ("urn:schemas-upnp-org:device:InternetGatewayDevice:1",
-             f"{USN}::urn:schemas-upnp-org:device:InternetGatewayDevice:1"),
-            ("urn:schemas-upnp-org:device:WANDevice:1",
-             f"{USN}::urn:schemas-upnp-org:device:WANDevice:1"),
-            ("urn:schemas-upnp-org:device:WANConnectionDevice:1",
-             f"{USN}::urn:schemas-upnp-org:device:WANConnectionDevice:1"),
-            ("urn:schemas-upnp-org:service:Layer3Forwarding:1",
-             f"{USN}::urn:schemas-upnp-org:service:Layer3Forwarding:1"),
-            ("urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1",
-             f"{USN}::urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1"),
-            ("urn:schemas-upnp-org:service:WANIPConnection:1",
-             f"{USN}::urn:schemas-upnp-org:service:WANIPConnection:1"),
-            ("urn:schemas-upnp-org:service:WANPPPConnection:1",
-             f"{USN}::urn:schemas-upnp-org:service:WANPPPConnection:1"),
-        ]
-        for nt, usn in services:
+        for nt in UPNP_NT_LIST:
             notify = messages.SSDPRequest("NOTIFY")
-            notify.headers = self._notify_headers(nt, usn, "ssdp:alive")
-            notify.sendto(transport, (network.MULTICAST_ADDRESS_IPV4, network.PORT))
-
-    def _send_byebye(self, transport):
-        services = [
-            ("upnp:rootdevice", f"{USN}::upnp:rootdevice"),
-            ("urn:schemas-upnp-org:device:InternetGatewayDevice:1",
-             f"{USN}::urn:schemas-upnp-org:device:InternetGatewayDevice:1"),
-            ("urn:schemas-upnp-org:device:WANDevice:1",
-             f"{USN}::urn:schemas-upnp-org:device:WANDevice:1"),
-            ("urn:schemas-upnp-org:device:WANConnectionDevice:1",
-             f"{USN}::urn:schemas-upnp-org:device:WANConnectionDevice:1"),
-            ("urn:schemas-upnp-org:service:Layer3Forwarding:1",
-             f"{USN}::urn:schemas-upnp-org:service:Layer3Forwarding:1"),
-            ("urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1",
-             f"{USN}::urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1"),
-            ("urn:schemas-upnp-org:service:WANIPConnection:1",
-             f"{USN}::urn:schemas-upnp-org:service:WANIPConnection:1"),
-            ("urn:schemas-upnp-org:service:WANPPPConnection:1",
-             f"{USN}::urn:schemas-upnp-org:service:WANPPPConnection:1"),
-        ]
-        for nt, usn in services:
-            notify = messages.SSDPRequest("NOTIFY")
-            notify.headers = self._notify_headers(nt, usn, "ssdp:byebye")
+            notify.headers = self._notify_headers(nt, f"{USN}::{nt}", "ssdp:alive")
             try:
                 notify.sendto(transport, (network.MULTICAST_ADDRESS_IPV4, network.PORT))
             except Exception as e:
-                logger.error("Failed to send byebye: %s", e)
+                logger.error("Failed to send NOTIFY alive for %s: %s", nt, e)
+        logger.debug("Sent NOTIFY alive for %d services", len(UPNP_NT_LIST))
+
+    def _send_byebye(self, transport):
+        for nt in UPNP_NT_LIST:
+            notify = messages.SSDPRequest("NOTIFY")
+            notify.headers = self._notify_headers(nt, f"{USN}::{nt}", "ssdp:byebye")
+            try:
+                notify.sendto(transport, (network.MULTICAST_ADDRESS_IPV4, network.PORT))
+            except Exception as e:
+                logger.error("Failed to send byebye for %s: %s", nt, e)
+
 
 class SSDPHandler(aio.SimpleServiceDiscoveryProtocol):
+    _ST_USN_MAP = {nt: f"{USN}::{nt}" for nt in UPNP_NT_LIST}
+
     def __init__(self, location: str):
         super().__init__()
         self.location = location
@@ -208,24 +178,6 @@ class SSDPHandler(aio.SimpleServiceDiscoveryProtocol):
     def response_received(self, response, addr):
         pass
 
-    _ST_USN_MAP = {
-        "upnp:rootdevice": f"{USN}::upnp:rootdevice",
-        "urn:schemas-upnp-org:device:InternetGatewayDevice:1":
-            f"{USN}::urn:schemas-upnp-org:device:InternetGatewayDevice:1",
-        "urn:schemas-upnp-org:device:WANDevice:1":
-            f"{USN}::urn:schemas-upnp-org:device:WANDevice:1",
-        "urn:schemas-upnp-org:device:WANConnectionDevice:1":
-            f"{USN}::urn:schemas-upnp-org:device:WANConnectionDevice:1",
-        "urn:schemas-upnp-org:service:WANIPConnection:1":
-            f"{USN}::urn:schemas-upnp-org:service:WANIPConnection:1",
-        "urn:schemas-upnp-org:service:WANPPPConnection:1":
-            f"{USN}::urn:schemas-upnp-org:service:WANPPPConnection:1",
-        "urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1":
-            f"{USN}::urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1",
-        "urn:schemas-upnp-org:service:Layer3Forwarding:1":
-            f"{USN}::urn:schemas-upnp-org:service:Layer3Forwarding:1",
-    }
-
     def request_received(self, request, addr):
         headers = dict(request.headers)
         st = headers.get("ST", "")
@@ -235,17 +187,17 @@ class SSDPHandler(aio.SimpleServiceDiscoveryProtocol):
 
     def _make_search_response(self, st: str, usn: str) -> messages.SSDPResponse:
         response = messages.SSDPResponse(200, "OK")
-        response.headers = _headers({
-            "CACHE-CONTROL": f"max-age={Config.SSDP_CACHE_CONTROL}",
+        response.headers = list({
+            "CACHE-CONTROL": f"max-age={SsdpConfig.CACHE_CONTROL}",
             "DATE": _upnp_date(),
             "LOCATION": self.location,
-            "SERVER": Config.SERVER_ID,
+            "SERVER": SsdpConfig.SERVER_ID,
             "ST": st,
             "USN": usn,
             "EXT": "",
             "BOOTID.UPNP.ORG": str(BOOT_ID),
             "CONFIGID.UPNP.ORG": str(CONFIG_ID),
-        })
+        }.items())
         return response
 
     def _send_search_response(self, st: str, addr: tuple):

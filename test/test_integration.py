@@ -1,29 +1,4 @@
 #!/usr/bin/env python3
-"""
-alter_upnpd — Integration test for docker-compose python_test container.
-
-Verifies UPnP IGD device discovery (via miniupnpc/upnpc),
-port-mapping CRUD via upnpc CLI, then confirms GOST actually
-forwards traffic through the mapped port.
-
-All verification uses the standard miniupnpc library (upnpc CLI) —
-no raw UDP/SOAP construction.
-
-Usage (inside python_test container):
-    python /app/test/test_integration.py
-
-Environment variables (all optional, compose-friendly defaults):
-    UPNP_URL          URL to rootDesc.xml
-                      default: http://alter_upnpd:5000/rootDesc.xml
-    GOST_API_URL      GOST API base URL (empty = skip GOST API checks)
-                      default: (empty, skipped)
-    TEST_CLIENT_IP    Internal client IP for test mappings (default: 192.168.1.100)
-    TEST_INT_PORT     Internal port (default: 19999)
-    TEST_EXT_PORT     External port (default: 19999)
-    TEST_PROTO        Protocol tcp|udp (default: tcp)
-"""
-
-import json
 import logging
 import os
 import socket
@@ -129,7 +104,6 @@ def run_upnpc(args):
 
 
 def _get_gateway_ip():
-    """Return docker host IP from container's default route."""
     try:
         with open("/proc/net/route") as f:
             for line in f:
@@ -144,7 +118,6 @@ def _get_gateway_ip():
 
 
 def _get_container_ip():
-    """Return this container's primary IP address."""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(1)
@@ -157,7 +130,6 @@ def _get_container_ip():
 
 
 def _extract_services(data):
-    """Extract service list from GOST API response (handles list, {services: [...]}, {data: [...]})."""
     if isinstance(data, list):
         svcs = [s for s in data if isinstance(s, dict)]
         log.info("  [DEBUG] GOST returned raw list, %d services", len(svcs))
@@ -176,11 +148,6 @@ def _extract_services(data):
 
 
 def _start_echo_server(port):
-    """Start a TCP echo server on 0.0.0.0:port in a daemon thread.
-
-    The server accepts one connection, echoes back whatever it receives,
-    then exits.  Returns the thread (so caller can join/wait).
-    """
     ready = threading.Event()
 
     def _serve():
@@ -211,7 +178,6 @@ def _start_echo_server(port):
 
 
 def _wait_for_device(url, timeout=30, interval=3):
-    """Poll rootDesc.xml until device responds or timeout expires."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         status, body = http_get(url)
@@ -223,8 +189,6 @@ def _wait_for_device(url, timeout=30, interval=3):
 
 
 def _probe(host, port, payload, timeout=8):
-    """Return (response_bytes|None, error_type).
-    error_type is None on success, or a string describing the failure."""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(timeout)
@@ -407,19 +371,6 @@ def _test_forwarding_stopped(gateway_ip, ext_port, timeout=5):
 
 
 def test_upnpc_discovery():
-    """Run upnpc -s (status) to verify SSDP discovery + SOAP via miniupnpc.
-
-    miniupnpc is the reference UPnP client library.  'upnpc -s' performs:
-      1. SSDP M-SEARCH → discover IGD device
-      2. Fetch rootDesc.xml from the LOCATION header
-      3. Parse control URLs from the device description
-      4. SOAP GetStatusInfo → verify connection status
-      5. SOAP GetExternalIPAddress → verify WAN IP
-
-    Pass criteria:
-      - "Found valid IGD" in output  → SSDP + description fetch work
-      - ExternalIPAddress is present  → SOAP GetExternalIPAddress works
-    """
     rc, output = run_upnpc(["-s"])
     ok = False
     if rc == 0:

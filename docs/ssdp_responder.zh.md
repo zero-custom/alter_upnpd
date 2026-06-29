@@ -2,33 +2,37 @@
 
 处理 UPnP 设备发现，基于 SSDP（Simple Service Discovery Protocol）：定期多播 NOTIFY 公告和 M-SEARCH 响应。
 
+## 模块常量
+
+`UPNP_NT_LIST` — 集中管理 8 个 UPnP 设备/服务类型列表，`SSDPResponder`（NOTIFY 通告）和 `SSDPHandler`（M-SEARCH 响应）共享使用。增删 UPnP 服务仅需改动此常量。
+
+| # | NT | USN 后缀 |
+|---|----|---------|
+| 1 | `upnp:rootdevice` | `::upnp:rootdevice` |
+| 2 | `urn:schemas-upnp-org:device:InternetGatewayDevice:1` | `::urn:...:InternetGatewayDevice:1` |
+| 3 | `urn:schemas-upnp-org:device:WANDevice:1` | `::urn:...:WANDevice:1` |
+| 4 | `urn:schemas-upnp-org:device:WANConnectionDevice:1` | `::urn:...:WANConnectionDevice:1` |
+| 5 | `urn:schemas-upnp-org:service:Layer3Forwarding:1` | `::urn:...:Layer3Forwarding:1` |
+| 6 | `urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1` | `::urn:...:WANCommonInterfaceConfig:1` |
+| 7 | `urn:schemas-upnp-org:service:WANIPConnection:1` | `::urn:...:WANIPConnection:1` |
+| 8 | `urn:schemas-upnp-org:service:WANPPPConnection:1` | `::urn:...:WANPPPConnection:1` |
+
 ## SSDPResponder
 
 在所有非回环 IPv4 接口上创建 UDP 数据报端点，加入 SSDP 多播组，定期发送 `ssdp:alive` NOTIFY 消息。使用 `ssdp` 库（`ssdp.aio.SimpleServiceDiscoveryProtocol`）。
 
 ### 周期性 NOTIFY `ssdp:alive`
 
-每 `Config.SSDP_NOTIFY_INTERVAL` 秒（默认 180s），在所有接口上发送 8 条 NOTIFY 消息：
-
-| # | NT | USN |
-|---|----|------|
-| 1 | `upnp:rootdevice` | `uuid:...::upnp:rootdevice` |
-| 2 | `urn:schemas-upnp-org:device:InternetGatewayDevice:1` | `uuid:...::urn:...:InternetGatewayDevice:1` |
-| 3 | `urn:schemas-upnp-org:device:WANDevice:1` | `uuid:...::urn:...:WANDevice:1` |
-| 4 | `urn:schemas-upnp-org:device:WANConnectionDevice:1` | `uuid:...::urn:...:WANConnectionDevice:1` |
-| 5 | `urn:schemas-upnp-org:service:Layer3Forwarding:1` | `uuid:...::urn:...:Layer3Forwarding:1` |
-| 6 | `urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1` | `uuid:...::urn:...:WANCommonInterfaceConfig:1` |
-| 7 | `urn:schemas-upnp-org:service:WANIPConnection:1` | `uuid:...::urn:...:WANIPConnection:1` |
-| 8 | `urn:schemas-upnp-org:service:WANPPPConnection:1` | `uuid:...::urn:...:WANPPPConnection:1` |
+每 `Config.SSDP_NOTIFY_INTERVAL` 秒（默认 180s），`_send_alive()` 遍历 `UPNP_NT_LIST`，为每个条目发送一条 NOTIFY。每个 NT 有独立的 try/except 块——某个条目发送失败不影响其他条目。
 
 每条 NOTIFY 包含以下头：
 
 | 头 | 值 |
 |---|---|
 | `HOST` | `239.255.255.250:1900` |
-| `NT` | 各消息不同——见上表 |
+| `NT` | （来自 `UPNP_NT_LIST`） |
 | `NTS` | `ssdp:alive` |
-| `USN` | 各消息不同 |
+| `USN` | 根据 NT 条目推导 |
 | `LOCATION` | `http://{ip}:{port}/rootDesc.xml` |
 | `CACHE-CONTROL` | `max-age=1800` |
 | `SERVER` | `Linux/2.6.18 UPnP/1.1 alter_upnpd/1.0` |
@@ -39,10 +43,10 @@
 
 ### M-SEARCH 处理
 
-`SSDPHandler` 继承自 `aio.SimpleServiceDiscoveryProtocol`。M-SEARCH 请求已完整实现：
+`SSDPHandler` 继承自 `aio.SimpleServiceDiscoveryProtocol`。ST→USN 映射表（`_ST_USN_MAP`）通过 dict comprehension 从 `UPNP_NT_LIST` 推导。
 
 1. `request_received()` 解析 `ST`（Search Target）头。
-2. 在 `_ST_USN_MAP`（8 种设备/服务类型 + `ssdp:all`）中查找对应的 USN。
+2. 在 `_ST_USN_MAP` 中查找对应的 USN。
 3. 调用 `_send_search_response()` 回复。
 
 **匹配逻辑：**
@@ -52,26 +56,12 @@
 | 特定类型（如 `upnp:rootdevice`、`urn:...:WANIPConnection:1`） | 单条 200 OK 响应，USN 匹配 |
 | `ssdp:all` | 8 条响应，每种设备/服务类型各一条 |
 
-每条 M-SEARCH 响应包含：
-
-| 头 | 值 |
-|---|---|
-| `CACHE-CONTROL` | `max-age=1800` |
-| `DATE` | RFC 1123 格式的当前时间 |
-| `LOCATION` | `http://{ip}:{port}/rootDesc.xml` |
-| `SERVER` | `Linux/2.6.18 UPnP/1.1 alter_upnpd/1.0` |
-| `ST` | 回显请求中的 `ST` 值 |
-| `USN` | 映射表中匹配的 USN |
-| `EXT` | 空 |
-| `BOOTID.UPNP.ORG` | 启动 ID |
-| `CONFIGID.UPNP.ORG` | `1` |
-
 ### 设备生命周期标识符
 
 | 标识符 | 值 | 说明 |
 |---|---|---|
 | `BOOT_ID` | `int(time.time())` | 每次重启更新。用于 `BOOTID.UPNP.ORG` 头。 |
-| `CONFIG_ID` | `1` | 静态——无运行时配置变更。用于 `CONFIGID.UPNP.ORG` 头。 |
+| `CONFIG_ID` | `1` | 静态。 |
 
 ### 启动流程
 

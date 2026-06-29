@@ -4,66 +4,75 @@ import time
 
 import py3stun
 
-from config import Config
+from config import StunConfig
 
 logger = logging.getLogger("alter_upnpd.stun")
 
-_wan_ip = Config.FALLBACK_WAN_IP
-_started = False
-_lock = threading.Lock()
 
-def _refresh():
-    global _wan_ip
-    stun_host, stun_port_str = Config.STUN_SERVER.rsplit(":", 1)
-    stun_port = int(stun_port_str)
+class StunClient:
+    def __init__(
+        self,
+        stun_server: str = "stun.l.google.com:19302",
+        retries: int = StunConfig.RETRIES,
+        refresh_interval: int = StunConfig.REFRESH_INTERVAL,
+        fallback_wan_ip: str = StunConfig.FALLBACK_WAN_IP,
+    ):
+        self._stun_server = stun_server
+        self._retries = retries
+        self._refresh_interval = refresh_interval
+        self._fallback_wan_ip = fallback_wan_ip
+        self._wan_ip = fallback_wan_ip
+        self._lock = threading.Lock()
+        self._started = False
 
-    for attempt in range(Config.STUN_RETRIES):
-        try:
-            nat_type, ext_ip, ext_port = py3stun.get_ip_info(
-                source_ip="0.0.0.0",
-                source_port=0,
-                stun_host=stun_host,
-                stun_port=stun_port,
-            )
-        except Exception as e:
-            logger.warning("STUN exception (attempt %d/%d): %s",
-                           attempt + 1, Config.STUN_RETRIES, e)
-            continue
-
-        if ext_ip:
-            with _lock:
-                _wan_ip = ext_ip
-            logger.info("STUN OK: WAN IP = %s (type=%s, port=%s)",
-                        ext_ip, nat_type, ext_port)
+    def start(self) -> None:
+        if self._started:
             return
-        else:
-            logger.warning("STUN no response (attempt %d/%d): type=%s",
-                           attempt + 1, Config.STUN_RETRIES, nat_type)
+        self._started = True
+        threading.Thread(target=self._refresh_loop, daemon=True).start()
 
-    logger.warning("STUN FAILED: %s:%s — using fallback %s",
-                   stun_host, stun_port, _wan_ip)
+    def get_wan_ip(self) -> str:
+        with self._lock:
+            return self._wan_ip
 
-def _refresh_loop():
-    _refresh()
-    while True:
-        time.sleep(Config.STUN_REFRESH_INTERVAL)
-        logger.info("STUN refresh (interval=%ds)", Config.STUN_REFRESH_INTERVAL)
-        _refresh()
+    def reset_cache(self) -> None:
+        with self._lock:
+            self._wan_ip = self._fallback_wan_ip
+        self._started = False
 
-def init():
+    def _refresh(self) -> None:
+        stun_host, stun_port_str = self._stun_server.rsplit(":", 1)
+        stun_port = int(stun_port_str)
 
-    global _started
-    if _started:
-        return
-    _started = True
-    threading.Thread(target=_refresh_loop, daemon=True).start()
+        for attempt in range(self._retries):
+            try:
+                nat_type, ext_ip, ext_port = py3stun.get_ip_info(
+                    source_ip="0.0.0.0",
+                    source_port=0,
+                    stun_host=stun_host,
+                    stun_port=stun_port,
+                )
+            except Exception as e:
+                logger.warning("STUN exception (attempt %d/%d): %s",
+                               attempt + 1, self._retries, e)
+                continue
 
-def get_wan_ip():
-    with _lock:
-        return _wan_ip
+            if ext_ip:
+                with self._lock:
+                    self._wan_ip = ext_ip
+                logger.info("STUN OK: WAN IP = %s (type=%s, port=%s)",
+                            ext_ip, nat_type, ext_port)
+                return
+            else:
+                logger.warning("STUN no response (attempt %d/%d): type=%s",
+                               attempt + 1, self._retries, nat_type)
 
-def reset_cache():
-    global _wan_ip, _started
-    with _lock:
-        _wan_ip = Config.FALLBACK_WAN_IP
-    _started = False
+        logger.warning("STUN FAILED: %s:%s — using fallback %s",
+                       stun_host, stun_port, self._wan_ip)
+
+    def _refresh_loop(self) -> None:
+        self._refresh()
+        while True:
+            time.sleep(self._refresh_interval)
+            logger.info("STUN refresh (interval=%ds)", self._refresh_interval)
+            self._refresh()

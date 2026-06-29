@@ -21,7 +21,7 @@ alter_upnpd/
 │   ├── upstream_client.py   # 上游 IGD 客户端（端口映射同步）
 │   ├── upnp_soap.py         # SOAP 动作处理器（ACL+IPConn+CIC+L3F）
 │   ├── webui.py             # PyWebIO + ECharts 监控仪表板（路由 /）
-│   ├── echarts_check.py     # ECharts CDN 版本校验
+│   ├── webui_render.py      # WebUI 图表渲染（ECharts JS + CSS 内联）
 │   ├── static_bp.py         # 本地静态资源 Flask Blueprint
 │   ├── static/              # 本地静态文件（echarts.min.js）
 │   ├── gunicorn_config.py   # WSGI 生命周期钩子

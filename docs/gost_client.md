@@ -1,35 +1,72 @@
 # gost_client.py — GOST REST API Client
 
-Wraps the GOST `/config/services` API for port mapping CRUD and server health checks.
+Wraps the GOST `/config/services` API for port mapping CRUD, metrics, and server health checks. Refactored into four separate seams for testability and single responsibility.
+
+## Module Structure
+
+```
+GostTransport          — Low-level HTTP transport (auth, retry, timeout)
+PortMappingRepository  — Port mapping CRUD + cache + expiry
+GostMetricsClient      — Prometheus metrics discovery, fetching, parsing
+GostClient             — Thin facade (backward-compatible)
+SpeedTracker           — Per-service traffic speed calculation
+PrometheusMetrics      — Parsed metrics snapshot object
+```
 
 ## Error Handling
 
-Uses typed exception classes instead of dict return values:
+Typed exception classes instead of dict return values:
 
 | Exception | When Raised |
 |---|---|
-| `GostConnectionError` | Connection/Timeout errors (retryable — 2 attempts, exponential backoff) |
+| `GostConnectionError` | Connection/Timeout errors (retryable - 2 attempts, exponential backoff) |
 | `GostApiError` | HTTP errors (4xx/5xx) and JSON decode errors (non-retryable) |
 
-Callers use `try/except` blocks. `get_services()` and `is_available()` catch exceptions internally and return safe defaults.
+## `GostTransport`
 
-## `GostClient`
+Low-level HTTP transport. Handles authentication, retry, and timeout. Used by both `PortMappingRepository` and `GostMetricsClient`.
 
-Instance per application. Holds a service cache (`_services_cache`) with a 30-second TTL. The cache is cleared on every write operation (add/update/delete) and automatically expired after 30 seconds, ensuring GOST restarts are detected promptly.
+```python
+transport = GostTransport(base_url, timeout=10, retries=2, username="", password="")
+transport.request("GET", "/config/services")
+```
 
-## Methods
+## `PortMappingRepository`
+
+Port mapping CRUD with service cache and expiry. Focused on one concern: reading and writing port mappings to the GOST API.
 
 | Method | Description |
 |---|---|
-| `is_available()` | Pings `/config/services` with 5s timeout, returns `True`/`False`. |
-| `get_services()` | Fetches all services from GOST. Cached. Returns `[]` on failure. Handles list, dict.data, and nested responses. |
-| `add_port_mapping(external_port, internal_port, internal_client, protocol, description, remote_host, enabled, lease_duration)` | Single POST to `/config/services` with inline `forwarder.nodes`. Stores all fields in `metadata`. |
-| `update_port_mapping(external_port, internal_port, internal_client, protocol, description, remote_host, enabled, lease_duration)` | PUT `/config/services/{name}` — updates an existing service in-place (refreshes `created_at` to extend lease). Used by same-client overwrite in AddPortMapping. |
-| `delete_port_mapping(external_port, protocol)` | Direct name construction `upnp_{port}_{protocol}`, DELETEs from `/config/services/{name}`. 404s are silently swallowed. |
-| `get_port_mappings()` | Filters services to those with `metadata.upnp == True`, reads all fields from metadata (not addr/forwarder parsing). |
-| `get_port_mapping_by_index(index)` | Nth mapping from `get_port_mappings()`, or `None`. |
-| `has_port_mapping(external_port, protocol)` | Convenience check — iterates mappings for matching port+protocol. |
-| `get_expired_services()` | Returns list of services where `now >= created_at + lease_duration` (lease > 0). |
+| `is_available()` | Pings `/config/services` with 5s timeout. |
+| `get_services()` | Fetches all services from GOST. Cached (30s TTL). Returns `[]` on failure. |
+| `add_port_mapping(...)` | Single POST to `/config/services` with inline `forwarder.nodes`. |
+| `update_port_mapping(...)` | PUT `/config/services/{name}` in-place update (refreshes `created_at`). |
+| `delete_port_mapping(port, protocol)` | Direct name `upnp_{port}_{protocol}`, DELETE. 404 silently swallowed. |
+| `get_port_mappings()` | Filter `metadata.upnp == True`, reads from metadata. |
+| `get_port_mapping_by_index(index)` | Nth mapping or `None`. |
+| `has_port_mapping(port, protocol)` | Iterates mappings for matching port+protocol. |
+| `get_expired_services()` | Lists services where `now >= created_at + lease_duration`. |
+
+## `GostMetricsClient`
+
+Prometheus metrics discovery, fetching, and parsing. Independent seam — callers that only need metrics (e.g. webui stats) can inject this without the CRUD layer.
+
+| Method | Description |
+|---|---|
+| `fetch_metrics()` | Fetches and parses Prometheus text. Returns `PrometheusMetrics` or `None`. |
+| `discover_metrics_url()` | Auto-discovers metrics endpoint from GOST API root. |
+
+## `GostClient` (Facade)
+
+Thin facade combining `PortMappingRepository` and `GostMetricsClient`. Existing callers continue to work unchanged. New code can inject repository or metrics client directly.
+
+## `SpeedTracker`
+
+Per-service traffic speed calculation from byte counters, with configurable sliding window.
+
+## `PrometheusMetrics`
+
+Parsed Prometheus metrics snapshot. Provides typed accessors for gauge values.
 
 ## Naming Convention
 
@@ -37,11 +74,7 @@ Instance per application. Holds a service cache (`_services_cache`) with a 30-se
 |---|---|---|
 | Service name | `upnp_{port}_{protocol}` | `upnp_8080_tcp` |
 
-No separate chain or node names — forwarder nodes are inlined in the service config.
-
 ## Metadata Storage
-
-All AddPortMapping fields stored in the GOST service `metadata` dict:
 
 ```json
 {
@@ -60,8 +93,6 @@ All AddPortMapping fields stored in the GOST service `metadata` dict:
 }
 ```
 
-`get_port_mappings()` reads exclusively from metadata — no addr/handler/forwarder parsing.
-
 ## Retry Behaviour
 
-`_request()` retries `ConnectionError` and `Timeout` up to 2 times with exponential backoff (2^attempt seconds). HTTP errors and JSON decode errors are raised immediately without retry.
+`GostTransport._request()` retries `ConnectionError` and `Timeout` up to 2 times with exponential backoff. HTTP errors and JSON decode errors are raised immediately.

@@ -1,11 +1,12 @@
-from config import Config
+import os
+from config import GunicornConfig
 
-bind = f"0.0.0.0:{Config.LISTEN_PORT}"
-workers = Config.WSGI_WORKERS
+bind = f"0.0.0.0:{os.environ.get('LISTEN_PORT', '5000')}"
+workers = GunicornConfig.WORKERS
 worker_class = "sync"
-timeout = Config.WSGI_TIMEOUT
-graceful_timeout = Config.WSGI_GRACEFUL_TIMEOUT
-keepalive = Config.WSGI_KEEPALIVE
+timeout = GunicornConfig.TIMEOUT
+graceful_timeout = GunicornConfig.GRACEFUL_TIMEOUT
+keepalive = GunicornConfig.KEEPALIVE
 
 def on_starting(server):
     import app as app_mod
@@ -13,8 +14,8 @@ def on_starting(server):
 
 def post_worker_init(worker):
     import app as app_mod
-    app_mod.init_background_services()
+    app_mod.lifecycle.start()
 
 def worker_exit(server, worker):
     import app as app_mod
-    app_mod.shutdown_background_services()
+    app_mod.lifecycle.stop()

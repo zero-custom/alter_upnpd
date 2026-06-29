@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.3.0 (2026-06-27)
+
+### 架构重构：依赖注入 + 模块化
+
+v1.3.0 的核心工作是架构层面的系统性重构——将原本耦合在 `app.py` 和各模块中的全局状态、内联逻辑提取为职责单一的类，通过构造函数注入建立显式依赖关系。目标是让每个模块可独立测试、可替换、可推理。
+
+**`app.py` 瘦身**：移除全部模块级全局变量（`_shutdown_event`、`_ssdp_thread`、`_lease_thread`、`TEMPLATE_CACHE`、`_TEMPLATE_VARS`）和内联后台函数（`run_ssdp`、`run_lease_cleanup`、`init_background_services`、`shutdown_background_services`）。提取为三个新模块：
+- `lifecycle.py`：`AppLifecycle` 类，管理 SSDP 公告 + 租赁清理线程生命周期
+- `template.py`：`TemplateRenderer` 类，带缓存失效的 XML 模板渲染引擎
+- `app_health.py`：`HealthService` 类，健康检查逻辑
+
+**`gost_client.py` 分层**：从单一日志客户端拆分为四层职责链：
+- `GostTransport`：HTTP 传输层（认证、重试、超时）
+- `PortMappingRepository`：端口映射 CRUD + 带 TTL 的缓存层
+- `GostMetricsClient`：Prometheus 指标采集
+- `GostClient`：门面，保持向后兼容
+
+**`upnp_soap.py` 精简**：SOAP XML 解析移至 `soap_xml.py`，ACL 验证逻辑移至 `acl.py`，处理器专注于动作分发。
+
+**`ssdp_responder.py` 优化**：`UPNP_NT_LIST` 常量提取，alive 循环合并，消除重复的发送逻辑。`SSDPResponder` 生命周期管理上移至 `AppLifecycle`。
+
+**`stun_client.py` / `upstream_client.py` 类改造**：从模块级函数 + 全局变量重构为类，配置通过构造函数注入。
+
+**`webui.py` 拆分**：渲染逻辑抽离为 `webui_format.py`（表格/图表数据格式化）+ `webui_render.py`（ECharts JS/CSS 内联渲染）。
+
+**`config.py` 配置模型重构**：引入 `EnvConfig` + `load_env_config()`，支持 strict 模式验证和 yaml 配置源。`GostClientConfig` 等子配置类分离。
+
+### 测试
+- 新增 `test/test_ssdp.py`（17 个 SSDP 专项测试），测试总数 187
+- 移除 `test/test_integration.py`（功能已被 SSDP 测试覆盖）
+
+---
+
+
+
 ## 1.2.0 (2026-06-26)
 
 ### Added

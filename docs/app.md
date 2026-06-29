@@ -1,6 +1,6 @@
 # app.py — Flask Application & Entrypoint
 
-Main Flask application. Defines HTTP routes, template rendering, background service lifecycle, and the `main()` entrypoint.
+Main Flask application. Defines HTTP routes, template rendering, background service lifecycle, and the `main()` entrypoint. Health check and lifecycle management have been extracted into separate modules (`app_health.py`, `lifecycle.py`).
 
 ## Routes
 
@@ -15,14 +15,15 @@ Main Flask application. Defines HTTP routes, template rendering, background serv
 | `/ctl/IPConn` | POST | WANIPConnection SOAP actions (primary). |
 | `/ctl/WANIPCn` | POST | WANIPConnection SOAP actions (alias). |
 | `/ctl/WANPPPCn` | POST | WANPPPConnection SOAP actions (same handler as IPConn). |
-| `/` | GET | Status page with IP:port. |
-| `/health` | GET | JSON health check (local IP, port, GOST API URL, GOST connectivity, mapping count, version). |
+| `/` | GET/POST | WebUI dashboard (PyWebIO via `webio_view`). |
+| `/health` | GET | JSON health check (via `HealthService`). |
+| `/static/<path>` | GET | Local static assets (ECharts JS, via `static_bp`). |
 
 Any `*.xml` path not listed above is handled by the catch-all `/<path:filename>` route, rendering the matching XML template from `xml/`.
 
 ## Template Rendering
 
-XML templates are loaded from `app/xml/` using Jinja2 and cached with mtime-based invalidation (`TEMPLATE_CACHE`). Only `rootDesc.xml` uses template variables; SCPD files are static but rendered through Jinja2.
+XML templates are loaded from `app/xml/` using Jinja2 via `TemplateRenderer` (`template.py`) and cached with mtime-based invalidation. Only `rootDesc.xml` uses template variables; SCPD files are static but rendered through Jinja2.
 
 ## Helper Functions
 
@@ -34,27 +35,27 @@ XML templates are loaded from `app/xml/` using Jinja2 and cached with mtime-base
 
 ## Background Services
 
-`init_background_services()` starts on application launch:
+Initiated via `AppLifecycle.start()` (`lifecycle.py`), launched on application startup:
 
-| Service | Description |
-|---|---|
-| SSDP responder | Sends periodic `ssdp:alive` NOTIFY announcements (every `Config.SSDP_NOTIFY_INTERVAL` sec). |
-| Lease cleanup | Scans all services for expired leases (every `Config.LEASE_CLEANUP_INTERVAL` sec), deletes expired ones. |
-| STUN client | If `Config.STUN` is enabled, starts STUN refresh thread for external IP discovery. |
+| Service | Module | Description |
+|---|---|---|
+| SSDP responder | `ssdp_responder.py` | Sends periodic `ssdp:alive` NOTIFY announcements (every `Config.SSDP_NOTIFY_INTERVAL` sec). |
+| Lease cleanup | `lifecycle.py` | Scans all services for expired leases (every `Config.LEASE_CLEANUP_INTERVAL` sec), deletes expired ones. |
+| STUN client | `stun_client.py` | If `Config.STUN` is enabled, starts STUN refresh thread for external IP discovery. |
 
-`shutdown_background_services()` sends SSDP `ssdp:byebye` notifications and joins the SSDP thread.
-
-## Entrypoint
-
-`main()` — Direct Python execution: calls `setup_logging()`, configures signal handlers, calls `init_background_services()`, runs the Flask dev server on `0.0.0.0:{LISTEN_PORT}`, and `shutdown_background_services()` on exit.
+`AppLifecycle.stop()` sends SSDP `ssdp:byebye` notifications and joins the SSDP thread.
 
 ## Health Check
 
-`GET /health` returns JSON with:
+`GET /health` implemented via `HealthService` (`app_health.py`). Returns JSON with:
 - `status`: `"healthy"` or `"degraded"` (based on GOST API connectivity)
 - `gost_connected`: boolean
 - `port_mappings_count`: integer
 - `local_ip`, `local_port`, `gost_api`, `version`
+
+## Entrypoint
+
+`main()` — Direct Python execution: calls `setup_logging()`, configures signal handlers, creates `AppLifecycle` and calls `start()`, runs the Flask dev server on `0.0.0.0:{LISTEN_PORT}`, and `AppLifecycle.stop()` on exit.
 
 ## WSGI
 
