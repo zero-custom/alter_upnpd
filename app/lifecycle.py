@@ -4,6 +4,7 @@ from typing import Callable, Optional
 
 from config import AppConfig
 from gost_client import GostClient
+from stun_client import StunClient
 
 logger = logging.getLogger("alter_upnpd.lifecycle")
 
@@ -18,6 +19,7 @@ class AppLifecycle:
         acl_enabled: bool,
         acl_allowed_subnets: str,
         version: str,
+        stun_client: StunClient | None = None,
         shutdown_timeout: int = AppConfig.SHUTDOWN_TIMEOUT,
     ):
         self._gost = gost_client
@@ -27,6 +29,7 @@ class AppLifecycle:
         self._acl_enabled = acl_enabled
         self._acl_allowed_subnets = acl_allowed_subnets
         self._version = version
+        self._stun_client = stun_client
         self._shutdown_timeout = shutdown_timeout
 
         self._shutdown_event: Optional[threading.Event] = None
@@ -51,6 +54,12 @@ class AppLifecycle:
             "Lease cleanup interval: %ds",
             self._lease_cleanup_interval,
         )
+
+        if self._stun_client:
+            self._stun_client.start()
+            if not self._stun_client.wait_ready(timeout=10):
+                logger.warning("STUN initial resolution timed out after 10s — "
+                               "using fallback WAN IP until next refresh")
 
         self._shutdown_event = threading.Event()
 

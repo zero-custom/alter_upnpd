@@ -361,11 +361,15 @@ class TestMakeChartJs:
 class TestBuildEchartsHtml:
     def test_empty_points(self):
         from webui_render import _build_echarts_html
-        assert _build_echarts_html(_state.chart, "test", []) == ""
+        html = _build_echarts_html(_state.chart, "test", [])
+        assert html.startswith('<div id="test"')
+        assert "height:220px" in html
 
     def test_single_point(self):
         from webui_render import _build_echarts_html
-        assert _build_echarts_html(_state.chart, "test", [DataPoint(1.0, 0, 0, 0)]) == ""
+        html = _build_echarts_html(_state.chart, "test", [DataPoint(1.0, 0, 0, 0)])
+        assert html.startswith('<div id="test"')
+        assert "height:220px" in html
 
     def test_two_points_returns_div(self):
         from webui_render import _build_echarts_html

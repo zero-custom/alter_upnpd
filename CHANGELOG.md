@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.1 (2026-07-02)
+
+### Fixed
+
+- **STUN 启动时序竞争**：`StunClient` 新增 `_ready` Event + `wait_ready()`，`AppLifecycle.start()` 在 STUN 启动后等待最多 10s 直到首次解析完成（或超时），然后才启动 SSDP 线程。避免客户端在 STUN 完成前查询 `GetExternalIPAddress` 得到 fallback IP `192.0.2.1`。
+
+### Changed
+
+- **`StunClient.wait_ready()`**: 新增公开方法，阻塞直到首次 STUN 刷新完成（或超时），返回 `bool`。
+
+---
+
 ## 1.3.0 (2026-06-27)
 
 ### 架构重构：依赖注入 + 模块化

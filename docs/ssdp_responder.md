@@ -23,7 +23,7 @@ Creates UDP datagram endpoints on all non-loopback IPv4 interfaces, joins the SS
 
 ### Periodic NOTIFY `ssdp:alive`
 
-Every `Config.SSDP_NOTIFY_INTERVAL` seconds (default 180s), `_send_alive()` iterates over `UPNP_NT_LIST` and sends one NOTIFY per entry. Each NT gets its own try/except block — a failure on one entry does not prevent the others from being sent.
+Every `EnvConfig.ssdp_notify_interval` seconds (default 180s), `_send_alive()` iterates over `UPNP_NT_LIST` and sends one NOTIFY per entry. Each NT gets its own try/except block — a failure on one entry does not prevent the others from being sent.
 
 Each NOTIFY includes these headers:
 

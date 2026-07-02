@@ -8,11 +8,11 @@ Three action registries (plain dicts) map action names to handler methods:
 
 | Registry | Service | Default URN |
 |---|---|---|
-| `SOAP_ACTIONS` | WANIPConnection:1 | `urn:schemas-upnp-org:service:WANIPConnection:1` |
-| `CIC_ACTIONS` | WANCommonInterfaceConfig:1 | `urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1` |
-| `L3F_ACTIONS` | Layer3Forwarding:1 | `urn:schemas-upnp-org:service:Layer3Forwarding:1` |
+| `_SOAP_HANDLERS` | WANIPConnection:1 | `urn:schemas-upnp-org:service:WANIPConnection:1` |
+| `_CIC_HANDLERS` | WANCommonInterfaceConfig:1 | `urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1` |
+| `_L3F_HANDLERS` | Layer3Forwarding:1 | `urn:schemas-upnp-org:service:Layer3Forwarding:1` |
 
-Actions are registered via `@soap_action`, `@cic_action`, or `@l3f_action` decorators.
+Actions are registered as plain dict entries — method names mapped to handler strings at class body level.
 
 ## `UPnPSOAPHandler`
 
@@ -20,12 +20,12 @@ Actions are registered via `@soap_action`, `@cic_action`, or `@l3f_action` decor
 
 | Method | Registry | Routes bound in `app.py` |
 |---|---|---|
-| `handle_wanipconnection()` | `SOAP_ACTIONS` | `/ctl/IPConn`, `/ctl/WANIPCn`, `/ctl/WANPPPCn` |
-| `handle_wancommonifconfig()` | `CIC_ACTIONS` | `/ctl/CmnIfCfg` |
-| `handle_l3forwarding()` | `L3F_ACTIONS` | `/ctl/L3F` |
+| `handle_wanipconnection()` | `_SOAP_HANDLERS` | `/ctl/IPConn`, `/ctl/WANIPCn`, `/ctl/WANPPPCn` |
+| `handle_wancommonifconfig()` | `_CIC_HANDLERS` | `/ctl/CmnIfCfg` |
+| `handle_l3forwarding()` | `_L3F_HANDLERS` | `/ctl/L3F` |
 
 All dispatchers share `_handle_service_request()` which:
-1. Checks ACL (if `Config.ACL_ENABLED`) — blocks IPs not in `Config.ACL_ALLOWED_SUBNETS`.
+1. Checks ACL (if `EnvConfig.acl_enabled`) — blocks IPs not in `EnvConfig.acl_allowed_subnets`.
 2. Reads the raw SOAP XML body from the Flask request.
 3. Parses via `parse_soap_body()` to extract action name and parameters.
 4. Sniffs the `SOAPAction` header to determine the action name (falls back to parsed body action).
@@ -41,14 +41,14 @@ All dispatchers share `_handle_service_request()` which:
 | `GetGenericPortMappingEntry` | Returns the Nth mapping (index-based pagination via `get_port_mapping_by_index`). Includes `lease_duration_remaining`. |
 | `GetSpecificPortMappingEntry` | Returns mapping matching external port + protocol + remote host from `get_port_mappings()`. |
 | `GetPortMappingNumberOfEntries` | Returns the total count of UPnP mappings. |
-| `GetExternalIPAddress` | Returns STUN-discovered IP when `Config.STUN` is enabled, otherwise `1.2.3.4`. |
+| `GetExternalIPAddress` | Returns STUN-discovered IP when `EnvConfig.stun` is enabled, otherwise `192.0.2.1`. |
 | `GetConnectionTypeInfo` | Returns `IP_Routed` (static). |
 | `GetLinkLayerMaxBitRates` | Returns 0 (static). |
 | `GetStatusInfo` | Returns `Connected`, `ERROR_NONE`, and uptime. |
 | `GetNATRSIPStatus` | Returns RSIP unavailable, NAT enabled. |
-| `SetConnectionType` | Returns fault 606 (Action not authorized). |
-| `RequestConnection` | Returns fault 606 (Action not authorized). |
-| `ForceTermination` | Returns fault 606 (Action not authorized). |
+| `SetConnectionType` | Returns fault 501 (Action failed). |
+| `RequestConnection` | Returns fault 501 (Action failed). |
+| `ForceTermination` | Returns fault 501 (Action failed). |
 
 ### WANCommonInterfaceConfig Handlers
 
@@ -79,7 +79,7 @@ SOAP faults use UPnP error codes wrapped in a `<s:Fault>` envelope:
 |---|---|
 | 402 | Invalid argument |
 | 501 | Action failed / GOST unreachable |
-| 606 | Action not authorized |
+
 | 713 | SpecifiedArrayIndexInvalid |
 | 714 | NoSuchEntry |
 | 715 | Port out of range (1-65535) |
@@ -87,4 +87,4 @@ SOAP faults use UPnP error codes wrapped in a `<s:Fault>` envelope:
 
 ## Lease Duration Logic
 
-`AddPortMapping` clamps lease duration to max 604800 (7 days). If `NewLeaseDuration` is 0 or absent, falls back to `Config.LEASE_DURATION`.
+`AddPortMapping` clamps lease duration to max 604800 (7 days). If `NewLeaseDuration` is 0 or absent, falls back to `EnvConfig.lease_duration`.

@@ -23,7 +23,7 @@
 
 ### 周期性 NOTIFY `ssdp:alive`
 
-每 `Config.SSDP_NOTIFY_INTERVAL` 秒（默认 180s），`_send_alive()` 遍历 `UPNP_NT_LIST`，为每个条目发送一条 NOTIFY。每个 NT 有独立的 try/except 块——某个条目发送失败不影响其他条目。
+每 `EnvConfig.ssdp_notify_interval` 秒（默认 180s），`_send_alive()` 遍历 `UPNP_NT_LIST`，为每个条目发送一条 NOTIFY。每个 NT 有独立的 try/except 块——某个条目发送失败不影响其他条目。
 
 每条 NOTIFY 包含以下头：
 

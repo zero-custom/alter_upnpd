@@ -38,4 +38,4 @@ check_port_mapping()
 
 ### Configuration
 
-Controlled via `Config.ACL_ENABLED`, `Config.SECURE_MODE`, and `Config.ACL_ALLOWED_SUBNETS`.
+The constructor receives values from `EnvConfig` (via `app.py`): `EnvConfig.acl_enabled`, `EnvConfig.secure_mode`, `EnvConfig.acl_allowed_subnets`.

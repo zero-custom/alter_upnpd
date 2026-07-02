@@ -38,4 +38,4 @@ check_port_mapping()
 
 ### 配置
 
-通过 `Config.ACL_ENABLED`、`Config.SECURE_MODE` 和 `Config.ACL_ALLOWED_SUBNETS` 控制。
+构造参数来自 `EnvConfig`（通过 `app.py` 传入）：`EnvConfig.acl_enabled`、`EnvConfig.secure_mode`、`EnvConfig.acl_allowed_subnets`。

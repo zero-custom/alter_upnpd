@@ -24,21 +24,29 @@ class StunClient:
         self._wan_ip = fallback_wan_ip
         self._lock = threading.Lock()
         self._started = False
+        self._ready = threading.Event()
 
     def start(self) -> None:
         if self._started:
             return
         self._started = True
+        self._ready.clear()
         threading.Thread(target=self._refresh_loop, daemon=True).start()
 
     def get_wan_ip(self) -> str:
         with self._lock:
             return self._wan_ip
 
+    def wait_ready(self, timeout: float = 10.0) -> bool:
+        """Block until first STUN refresh completes (or timeout).
+        Returns True if ready, False on timeout."""
+        return self._ready.wait(timeout)
+
     def reset_cache(self) -> None:
         with self._lock:
             self._wan_ip = self._fallback_wan_ip
         self._started = False
+        self._ready.clear()
 
     def _refresh(self) -> None:
         stun_host, stun_port_str = self._stun_server.rsplit(":", 1)

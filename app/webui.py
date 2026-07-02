@@ -10,7 +10,7 @@ from pywebio.pin import *
 from pywebio.session import defer_call, register_thread, run_js
 from pywebio.exceptions import SessionNotFoundException
 
-from gost_client import GostApiError, GostClient, GostConnectionError
+from gost_client import GostApiError, GostClient, GostConnectionError, MetricsFilter
 from webui_format import (
     ChartState, DataPoint,
     _downsample, _fmt_bytes, _fmt_duration, _fmt_speed, _fmt_time,
@@ -24,6 +24,13 @@ logger = logging.getLogger("alter_upnpd.gost_webui")
 _gost_client: Optional[GostClient] = None
 _refresh_interval = 10
 _REFRESH_LOCK = threading.Lock()
+
+# 后台 collector：容器启动即开始采集，session 只读缓存
+_collector_started = False
+_collector_stop = threading.Event()
+_collector_data_lock = threading.Lock()
+_cached_mappings: List[Dict[str, Any]] = []
+_cached_stats: Dict[str, Any] = {}
 
 
 @dataclass
@@ -51,6 +58,50 @@ def init(
     _refresh_interval = refresh_interval
     _state.chart.max_history = history_points
     _state.chart.display_max = history_points
+
+
+# ── Background collector (single writer) ──
+
+
+def _start_background_collector() -> None:
+    global _collector_started
+    if _collector_started:
+        return
+    _collector_started = True
+    if _collector_stop.is_set():
+        _collector_stop.clear()
+    t = threading.Thread(target=_collector_worker, daemon=True)
+    t.start()
+    logger.info("Background collector started")
+
+
+def _collector_worker() -> None:
+    while True:
+        try:
+            mappings = _gost_client.get_port_mappings()
+            pm = _gost_client.fetch_metrics()
+
+            # 用 Prometheus gost_service_requests_in_flight 覆盖 per-port current_conns
+            if pm is not None:
+                for m in mappings:
+                    name = m["name"]
+                    flt = MetricsFilter(service=name)
+                    conns = pm.sum_gauge("gost_service_requests_in_flight", flt)
+                    m["current_conns"] = int(conns)
+
+            stats = get_summary_stats(_gost_client, pm=pm)
+
+            with _collector_data_lock:
+                _cached_mappings[:] = mappings
+                _cached_stats.clear()
+                _cached_stats.update(stats)
+
+            _record_data_points(_state.chart, mappings, stats)
+        except Exception:
+            logger.exception("Background collector failed")
+
+        if _collector_stop.wait(_refresh_interval):
+            break
 
 
 # ── Action handlers (callbacks from render layer) ──
@@ -249,8 +300,9 @@ def _refresh() -> None:
     if not _REFRESH_LOCK.acquire(blocking=False):
         return
     try:
-        mappings = _gost_client.get_port_mappings()
-        stats = get_summary_stats(_gost_client)
+        with _collector_data_lock:
+            mappings = list(_cached_mappings)
+            stats = dict(_cached_stats)
 
         cs = _state.chart
         ss = _state.selection
@@ -259,7 +311,6 @@ def _refresh() -> None:
 
         render._render_summary(mappings, stats)
 
-        _record_data_points(cs, mappings, stats)
         render._render_charts(cs)
 
         if not mappings:
@@ -285,6 +336,7 @@ def _refresh() -> None:
                     pass
         else:
             _update_table_data(mappings, stats)
+            run_js(render._build_per_port_data_update_js(cs))
 
         run_js(render._make_chart_js(cs))
     except SessionNotFoundException:
@@ -309,22 +361,35 @@ def main() -> None:
         _gost_client = GostClient("http://127.0.0.1:8000")
         logger.warning("webui.main() called without init() — using default GostClient")
 
+    _start_background_collector()
+
     config(title="GOST Port Mapping Web UI", theme="yeti",
            css_style=render._CUSTOM_CSS)
 
     run_js(render._ECHARTS_CDN_JS)
 
-    try:
-        mappings = _gost_client.get_port_mappings()
-        stats = get_summary_stats(_gost_client)
-    except (GostConnectionError, GostApiError):
-        mappings = []
-        stats = {}
-        put_warning(
-            "Cannot connect to GOST API - "
-            "check that GOST is running and reachable."
-        )
+    with _collector_data_lock:
+        mappings = list(_cached_mappings)
+        stats = dict(_cached_stats)
 
+    # 冷启动兜底：collector 首次 fetch 还未完成时直接取一次
+    if not mappings:
+        try:
+            mappings = _gost_client.get_port_mappings()
+            stats = get_summary_stats(_gost_client)
+            with _collector_data_lock:
+                _cached_mappings[:] = mappings
+                _cached_stats.clear()
+                _cached_stats.update(stats)
+        except (GostConnectionError, GostApiError):
+            mappings = []
+            stats = {}
+            put_warning(
+                "Cannot connect to GOST API - "
+                "check that GOST is running and reachable."
+            )
+
+    _record_data_points(_state.chart, mappings, stats)
     _state.selection.prev_count = len(mappings)
 
     put_scope("summary")
@@ -334,9 +399,7 @@ def main() -> None:
 
     cs = _state.chart
     render._render_summary(mappings, stats)
-    if mappings:
-        _record_data_points(cs, mappings, stats)
-    render._render_charts(cs)
+    render._init_chart(cs)
     render._render_table(cs, mappings, stats, _on_confirm_delete, _delete_selected)
     run_js(render._make_chart_js(cs))
     render._render_add_form(on_add=_handle_add)

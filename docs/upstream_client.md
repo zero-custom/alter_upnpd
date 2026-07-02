@@ -17,7 +17,7 @@ GOST:          :8888    ──►  client_ip:9000
 
 ```
 upnp_soap.py:
-    if Config.UPSTREAM_IGD_URL:
+    if EnvConfig.upstream_igd_url:
         upstream_client.add_port_mapping(...)
 ```
 

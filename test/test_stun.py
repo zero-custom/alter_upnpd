@@ -112,3 +112,28 @@ class TestIndependentInstances:
     def test_custom_server(self):
         client = StunClient(stun_server="custom.stun.example.com:3478")
         assert client._stun_server == "custom.stun.example.com:3478"
+
+
+class TestWaitReady:
+    def test_returns_true_when_refresh_succeeds(self):
+        client = StunClient()
+        with patch.object(client, "_refresh") as mock_refresh:
+            mock_refresh.side_effect = lambda: client._ready.set()
+            client.start()
+            assert client.wait_ready(timeout=5) is True
+
+    def test_returns_false_on_timeout(self):
+        client = StunClient()
+        assert client.wait_ready(timeout=0.01) is False
+
+    def test_ready_set_after_start(self):
+        client = StunClient()
+        client.start()
+        client._ready.set()
+        assert client.wait_ready(timeout=5) is True
+
+    def test_cleared_on_reset_cache(self):
+        client = StunClient()
+        client._ready.set()
+        client.reset_cache()
+        assert client._ready.is_set() is False

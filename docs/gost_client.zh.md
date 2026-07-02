@@ -27,6 +27,9 @@ PrometheusMetrics      — 解析后的指标快照对象
 ```python
 transport = GostTransport(base_url, timeout=10, retries=2, username="", password="")
 transport.request("GET", "/config/services")
+
+# 连通性检查
+transport.is_available()  # 用 5 秒超时 ping /config/services
 ```
 
 ## `PortMappingRepository`
@@ -35,7 +38,6 @@ transport.request("GET", "/config/services")
 
 | 方法 | 说明 |
 |---|---|
-| `is_available()` | 用 5 秒超时 ping `/config/services`。 |
 | `get_services()` | 获取所有服务。有缓存（30s TTL）。失败返回 `[]`。 |
 | `add_port_mapping(...)` | 单次 POST 到 `/config/services`，内联 `forwarder.nodes`。 |
 | `update_port_mapping(...)` | PUT `/config/services/{name}` 原地更新（刷新 `created_at`）。 |

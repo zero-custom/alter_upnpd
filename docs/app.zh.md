@@ -30,7 +30,7 @@ XML 模板从 `app/xml/` 通过 Jinja2 由 `TemplateRenderer`（`template.py`）
 | 函数 | 说明 |
 |---|---|
 | `get_local_ip()` | 通过 `socket.connect()` 到 `10.255.255.255:1` 发现本地 IP。失败时回退到 `127.0.0.1`。 |
-| `get_local_port()` | 返回 `Config.LISTEN_PORT`。 |
+| `get_local_port()` | 返回 `EnvConfig.listen_port`。 |
 | `get_location()` | 返回 `http://{ip}:{port}/rootDesc.xml`。 |
 
 ## 后台服务
@@ -39,9 +39,9 @@ XML 模板从 `app/xml/` 通过 Jinja2 由 `TemplateRenderer`（`template.py`）
 
 | 服务 | 模块 | 说明 |
 |---|---|---|
-| SSDP 响应器 | `ssdp_responder.py` | 定期发送 `ssdp:alive` NOTIFY 通告（每 `Config.SSDP_NOTIFY_INTERVAL` 秒）。 |
-| 租期清理 | `lifecycle.py` | 扫描所有服务中已过期的租期（每 `Config.LEASE_CLEANUP_INTERVAL` 秒），删除过期条目。 |
-| STUN 客户端 | `stun_client.py` | 若 `Config.STUN` 启用，启动 STUN 刷新线程以获取外网 IP。 |
+| SSDP 响应器 | `ssdp_responder.py` | 定期发送 `ssdp:alive` NOTIFY 通告（每 `EnvConfig.ssdp_notify_interval` 秒）。 |
+| 租期清理 | `lifecycle.py` | 扫描所有服务中已过期的租期（每 `EnvConfig.lease_cleanup_interval` 秒），删除过期条目。 |
+| STUN 客户端 | `stun_client.py` | 若 `EnvConfig.stun` 启用，启动 STUN 刷新线程以获取外网 IP。 |
 
 `AppLifecycle.stop()` 发送 SSDP `ssdp:byebye` 通知并等待 SSDP 线程结束。
 

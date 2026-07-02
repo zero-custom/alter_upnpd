@@ -71,8 +71,6 @@ gost_client = GostClient(
 upstream = UpstreamClient(upstream_igd_url=cfg.upstream_igd_url)
 
 stun_client = StunClient(stun_server=cfg.stun_server) if cfg.stun else None
-if stun_client:
-    stun_client.start()
 
 soap_handler = UPnPSOAPHandler(
     gost_client=gost_client,
@@ -112,6 +110,7 @@ lifecycle = AppLifecycle(
     acl_enabled=cfg.acl_enabled,
     acl_allowed_subnets=cfg.acl_allowed_subnets,
     version=VERSION,
+    stun_client=stun_client,
 )
 
 render_xml = template.render

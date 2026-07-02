@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -23,6 +24,9 @@ _ECHARTS_CDN_JS = (
     "require.config({paths:{'echarts':'/static/js/echarts.min'}});"
     "require(['echarts'],function(e){window.echarts=e;})"
 )
+
+# 滚动窗口：只展示最近 N 个点，新数据从右进入
+_WINDOW_SIZE = 8640
 
 
 def _card(label: str, value: str, color_idx: int) -> Any:
@@ -55,8 +59,9 @@ def _build_echarts_html(
     title: str = "",
     height: int = 220,
 ) -> str:
+    # 始终返回容器 div，但只有 >=2 个点时才入队 options
     if not points or len(points) < 2:
-        return ""
+        return f'<div id="{chart_id}" style="width:100%;height:{height}px;"></div>'
 
     pts = _downsample(points, max_points=cs.display_max)
     times = [_fmt_time(p.timestamp) for p in pts]
@@ -156,11 +161,22 @@ def _build_echarts_html(
     )
 
 
-def _render_charts(cs: ChartState) -> None:
+def _init_chart(cs: ChartState) -> None:
+    """创建图表容器（仅首次调用）。由 main() 调用。"""
+    total_pts = cs.history.get("__total__", [])
     with use_scope("charts", clear=True):
-        total_pts = cs.history.get("__total__", [])
-        if len(total_pts) >= 2:
-            put_html(_build_echarts_html(cs, "chart_total", total_pts, "\u603b\u6d41\u91cf\u8d8b\u52bf (24h)", height=500))
+        window = total_pts[-_WINDOW_SIZE:] if len(total_pts) >= _WINDOW_SIZE else total_pts
+        put_html(_build_echarts_html(cs, "chart_total", window, "\u603b\u6d41\u91cf\u8d8b\u52bf (24h)", height=500))
+
+
+def _render_charts(cs: ChartState) -> None:
+    """增量更新图表数据，不重建 DOM。由 _refresh() 调用。"""
+    total_pts = cs.history.get("__total__", [])
+    if not total_pts:
+        return
+    window = total_pts[-_WINDOW_SIZE:] if len(total_pts) >= _WINDOW_SIZE else total_pts
+    # 只入队 options，不碰 DOM（容器已由 _init_chart 创建）
+    _build_echarts_html(cs, "chart_total", window, "\u603b\u6d41\u91cf\u8d8b\u52bf (24h)", height=500)
 
 
 def _render_add_form(on_add) -> None:
@@ -194,17 +210,30 @@ def _render_add_form(on_add) -> None:
         ], open=False)
 
 
-def _put_hidden_chart(cs: ChartState, container_id: str, key: str) -> None:
-    pts = cs.history.get(key, [])
-    if len(pts) < 2:
-        return
-    chart_id = "chart_" + key.replace("/", "_")
-    put_html(
-        f'<div id="{container_id}" '
-        f'style="visibility:hidden;position:absolute;top:0;left:0;width:100%;height:300px">'
-        f'{_build_echarts_html(cs, chart_id, pts, key, height=300)}'
-        f'</div>'
-    )
+def _build_per_port_data_script(cs: ChartState) -> str:
+    port_data = {}
+    for key, points in cs.history.items():
+        if key == "__total__":
+            continue
+        window = points[-_WINDOW_SIZE:] if len(points) >= _WINDOW_SIZE else points
+        port_data[key] = [
+            [p.timestamp, round(p.speed_in, 1), round(p.speed_out, 1), p.current_conns]
+            for p in window
+        ]
+    return f'<script>window._portData={json.dumps(port_data)};</script>'
+
+
+def _build_per_port_data_update_js(cs: ChartState) -> str:
+    port_data = {}
+    for key, points in cs.history.items():
+        if key == "__total__":
+            continue
+        window = points[-_WINDOW_SIZE:] if len(points) >= _WINDOW_SIZE else points
+        port_data[key] = [
+            [p.timestamp, round(p.speed_in, 1), round(p.speed_out, 1), p.current_conns]
+            for p in window
+        ]
+    return f'window._portData={json.dumps(port_data)};'
 
 
 def _prepare_table_header() -> List[Any]:
@@ -249,7 +278,7 @@ def _build_data_row(mapping: Dict, idx: int, avail: bool, on_delete) -> List[Any
     cb_name = f"sel_{ext_port}_{proto_lower}"
     return [
         put_checkbox(cb_name, options=[("", "selected")], inline=True),
-        put_html(f'<span class="expand-trigger" data-idx="{idx - 1}" style="cursor:pointer;user-select:none">\u25b6</span>'),
+        put_html(f'<span class="expand-trigger" data-idx="{idx}" style="cursor:pointer;user-select:none">\u25b6</span>'),
         idx + 1,
         mapping.get("display_name", mapping.get("name", "")),
         str(mapping.get("external_port", "")),
@@ -350,17 +379,43 @@ _TABLE_INIT_SCRIPT = """<script>
   }, 500);
 
   function moveChartToDetail(idx, detail) {
-    var src = document.getElementById('chart_source_' + idx);
-    if (!src || !src.children.length) return;
     var content = detail.querySelector('.detail-content');
     if (!content) return;
-    content.innerHTML = '';
-    Array.from(src.children).forEach(function(el) { content.appendChild(el); });
-    var chartDiv = content.querySelector('[id^="chart_"]');
-    if (chartDiv) {
-      var c = echarts.getInstanceByDom(chartDiv);
-      if (c) setTimeout(function() { c.resize(); }, 50);
+    if (content._chartTimer) return;
+    content.innerHTML = '<div style="width:100%;height:300px"></div>';
+    var chartDiv = content.querySelector('div');
+    var portKeys = Object.keys(window._portData || {});
+    var portKey = portKeys[idx];
+    if (!portKey) return;
+    var chart = echarts.init(chartDiv);
+    function _opts(pts) {
+      var times = pts.map(function(p){var d=new Date(p[0]*1000);return('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2)});
+      var zs=0;if(pts.length>1){var tr=pts[pts.length-1][0]-pts[0][0];if(tr>3600)zs=Math.round((1-3600/tr)*100*100)/100;}
+      return {
+        tooltip:{trigger:'axis'}, legend:{top:'top',left:'left'},
+        grid:{left:'3%',right:'4%',bottom:'18%',containLabel:true},
+        xAxis:{type:'category',data:times,boundaryGap:false,axisLabel:{rotate:45,fontSize:9}},
+        yAxis:[{type:'value',name:'\u5e26\u5bbd',axisLabel:{formatter:function(v){return v>=1e6?(v/1e6).toFixed(1)+'MB/s':v>=1e3?(v/1e3).toFixed(1)+'KB/s':v.toFixed(0)+'B/s'}}},{type:'value',name:'\u8fde\u63a5\u6570'}],
+        dataZoom:[{type:'inside',start:zs,end:100},{type:'slider',start:zs,end:100,height:10}],
+        series:[
+          {name:'\u5165\u7ad9\u5e26\u5bbd',type:'line',data:pts.map(function(p){return p[1]}),yAxisIndex:0,smooth:false,symbol:'none',color:'#5470c6',sampling:'lttb'},
+          {name:'\u51fa\u7ad9\u5e26\u5bbd',type:'line',data:pts.map(function(p){return p[2]}),yAxisIndex:0,smooth:false,symbol:'none',color:'#91cc75',sampling:'lttb'},
+          {name:'\u8fde\u63a5\u6570',type:'line',data:pts.map(function(p){return p[3]}),yAxisIndex:1,smooth:false,symbol:'none',color:'#fc8452',sampling:'lttb'}
+        ]
+      };
     }
+    var pts = window._portData[portKey] || [];
+    if (pts.length >= 2) chart.setOption(_opts(pts));
+    setTimeout(function(){chart.resize();},50);
+    content._chartTimer = setInterval(function(){
+      if (!document.body.contains(detail) || detail.style.display === 'none') {
+        clearInterval(content._chartTimer);
+        content._chartTimer = null;
+        return;
+      }
+      var nd = window._portData[portKey] || [];
+      if (nd.length >= 2) chart.setOption(_opts(nd));
+    }, 10000);
   }
 
   function _countTableCols() {
@@ -428,6 +483,13 @@ _TABLE_INIT_SCRIPT = """<script>
         moveChartToDetail(idx, detail);
       } else {
         detail.style.display = 'none';
+        var dc = detail.querySelector('.detail-content');
+        if (dc && dc._chartTimer) {
+          clearInterval(dc._chartTimer);
+          dc._chartTimer = null;
+          var cd = dc.querySelector('div');
+          if (cd) { var inst = echarts.getInstanceByDom(cd); if (inst) inst.dispose(); }
+        }
       }
     });
     _applyZebra();
@@ -463,12 +525,7 @@ def _render_table(
 
         put_table(rows, header=header)
 
-        for idx, m in enumerate(mappings):
-            ext_port = m.get("external_port", 0)
-            proto_lower = m.get("protocol", "TCP").lower()
-            chart_id = "chart_source_" + str(idx)
-            _put_hidden_chart(cs, chart_id, f"{proto_lower}/{ext_port}")
-
+        put_html(_build_per_port_data_script(cs))
         put_html(_TABLE_INIT_SCRIPT)
 
 
@@ -524,8 +581,8 @@ def _make_chart_js(cs: ChartState) -> str:
     for cid, opts in queue:
         parts.append(
             f'var el=document.getElementById("{cid}");'
-            f'if(el&&!echarts.getInstanceByDom(el))'
-            f'{{echarts.init(el).setOption({opts},true);}}'
+            f'if(el)'
+            f'{{(echarts.getInstanceByDom(el)||echarts.init(el)).setOption({opts},true);}}'
         )
     queue.clear()
     js = ''.join(parts)

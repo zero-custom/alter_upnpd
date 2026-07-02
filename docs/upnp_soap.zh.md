@@ -8,11 +8,11 @@
 
 | 注册表 | 服务 | 默认 URN |
 |---|---|---|
-| `SOAP_ACTIONS` | WANIPConnection:1 | `urn:schemas-upnp-org:service:WANIPConnection:1` |
-| `CIC_ACTIONS` | WANCommonInterfaceConfig:1 | `urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1` |
-| `L3F_ACTIONS` | Layer3Forwarding:1 | `urn:schemas-upnp-org:service:Layer3Forwarding:1` |
+| `_SOAP_HANDLERS` | WANIPConnection:1 | `urn:schemas-upnp-org:service:WANIPConnection:1` |
+| `_CIC_HANDLERS` | WANCommonInterfaceConfig:1 | `urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1` |
+| `_L3F_HANDLERS` | Layer3Forwarding:1 | `urn:schemas-upnp-org:service:Layer3Forwarding:1` |
 
-动作通过 `@soap_action`、`@cic_action` 或 `@l3f_action` 装饰器注册。
+动作为普通字典条目——在类体级别将方法名映射到处理器字符串。
 
 ## `UPnPSOAPHandler`
 
@@ -20,12 +20,12 @@
 
 | 方法 | 注册表 | `app.py` 中绑定的路由 |
 |---|---|---|
-| `handle_wanipconnection()` | `SOAP_ACTIONS` | `/ctl/IPConn`、`/ctl/WANIPCn`、`/ctl/WANPPPCn` |
-| `handle_wancommonifconfig()` | `CIC_ACTIONS` | `/ctl/CmnIfCfg` |
-| `handle_l3forwarding()` | `L3F_ACTIONS` | `/ctl/L3F` |
+| `handle_wanipconnection()` | `_SOAP_HANDLERS` | `/ctl/IPConn`、`/ctl/WANIPCn`、`/ctl/WANPPPCn` |
+| `handle_wancommonifconfig()` | `_CIC_HANDLERS` | `/ctl/CmnIfCfg` |
+| `handle_l3forwarding()` | `_L3F_HANDLERS` | `/ctl/L3F` |
 
 所有分发器共享 `_handle_service_request()`：
-1. 检查 ACL（若 `Config.ACL_ENABLED`）——阻止不在 `Config.ACL_ALLOWED_SUBNETS` 中的 IP。
+1. 检查 ACL（若 `EnvConfig.acl_enabled`）——阻止不在 `EnvConfig.acl_allowed_subnets` 中的 IP。
 2. 从 Flask 请求中读取原始 SOAP XML 体。
 3. 通过 `parse_soap_body()` 解析出动作名和参数。
 4. 从 `SOAPAction` 头中嗅探动作名（解析失败时退回到从请求体中提取）。
@@ -41,14 +41,14 @@
 | `GetGenericPortMappingEntry` | 返回第 N 个映射（基于索引的翻页，使用 `get_port_mapping_by_index`）。包含 `lease_duration_remaining`。 |
 | `GetSpecificPortMappingEntry` | 从 `get_port_mappings()` 返回匹配外网端口+协议+远程主机的映射。 |
 | `GetPortMappingNumberOfEntries` | 返回 UPnP 映射的总数。 |
-| `GetExternalIPAddress` | 当 `Config.STUN` 启用时返回 STUN 发现的外网 IP，否则返回 `1.2.3.4`。 |
+| `GetExternalIPAddress` | 当 `EnvConfig.stun` 启用时返回 STUN 发现的外网 IP，否则返回 `192.0.2.1`。 |
 | `GetConnectionTypeInfo` | 返回 `IP_Routed`（静态）。 |
 | `GetLinkLayerMaxBitRates` | 返回 0（静态）。 |
 | `GetStatusInfo` | 返回 `Connected`、`ERROR_NONE` 和运行时间。 |
 | `GetNATRSIPStatus` | 返回 RSIP 不可用、NAT 启用。 |
-| `SetConnectionType` | 返回错误 606（Action not authorized）。 |
-| `RequestConnection` | 返回错误 606（Action not authorized）。 |
-| `ForceTermination` | 返回错误 606（Action not authorized）。 |
+| `SetConnectionType` | 返回错误 501（Action failed）。 |
+| `RequestConnection` | 返回错误 501（Action failed）。 |
+| `ForceTermination` | 返回错误 501（Action failed）。 |
 
 ### WANCommonInterfaceConfig 处理器
 
@@ -79,7 +79,7 @@ SOAP 错误使用 UPnP 错误码包装在 `<s:Fault>` 结构中：
 |---|---|
 | 402 | 无效参数 |
 | 501 | 操作失败 / GOST 不可达 |
-| 606 | 操作未授权 |
+
 | 713 | SpecifiedArrayIndexInvalid |
 | 714 | NoSuchEntry |
 | 715 | 端口超出范围（1-65535） |
@@ -87,4 +87,4 @@ SOAP 错误使用 UPnP 错误码包装在 `<s:Fault>` 结构中：
 
 ## 租期逻辑
 
-`AddPortMapping` 将租期限制在最多 604800 秒（7 天）。如果 `NewLeaseDuration` 为 0 或缺失，则退回到 `Config.LEASE_DURATION`。
+`AddPortMapping` 将租期限制在最多 604800 秒（7 天）。如果 `NewLeaseDuration` 为 0 或缺失，则退回到 `EnvConfig.lease_duration`。

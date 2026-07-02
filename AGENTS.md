@@ -59,7 +59,7 @@ alter_upnpd/
 ## WHERE TO LOOK
 | Task | Location |
 |------|-----------|
-| 配置项 | config.py → `Config` 类 |
+| 配置项 | config.py → `EnvConfig` / `AppConfig` 等配置类 |
 | 添加端口转发 | upnp_soap.py → `_handle_add_port_mapping` |
 | 删除端口转发 | upnp_soap.py → `_handle_delete_port_mapping` |
 | 按索引/协议查询端口映射 | upnp_soap.py → `_handle_get_port_mapping_entry` / `_handle_get_specific_port_mapping` |
@@ -80,9 +80,9 @@ alter_upnpd/
 
 ## CONVENTIONS
 - 路由使用 `app.route()` 装饰器注册
-- SOAP 处理使用 `@soap_action` 装饰器注册（`upnp_soap.py`）
+- SOAP 处理通过 `_SOAP_HANDLERS` / `_CIC_HANDLERS` / `_L3F_HANDLERS` 字典注册（`upnp_soap.py`）
 - XML 使用 Jinja2 模板渲染，缓存按 mtime 失效
-- 配置通过 `config.Config` 类（从环境变量读取）
+- 配置通过 `EnvConfig`（环境变量）、`AppConfig` 等配置类管理
 - `GostClient` 有内部缓存 (`_services_cache`)，增删改操作后自动清空缓存
 - 异常体系：`GostConnectionError`（网络层） / `GostApiError`（HTTP 层）
 

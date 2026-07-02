@@ -16,8 +16,8 @@ Gunicorn server configuration for production deployment. Single worker, synchron
 | Hook | Action |
 |---|---|
 | `on_starting` | Calls `app.setup_logging()` to configure logging. |
-| `post_worker_init` | Calls `app.init_background_services()` to start SSDP, STUN, and lease-cleanup threads. |
-| `worker_exit` | Calls `app.shutdown_background_services()` to SSDP byebye and join threads. |
+| `post_worker_init` | Calls `app.lifecycle.start()` to start SSDP, STUN, and lease-cleanup threads. |
+| `worker_exit` | Calls `app.lifecycle.stop()` to send SSDP byebye and join threads. |
 
 ## Why Single Worker
 

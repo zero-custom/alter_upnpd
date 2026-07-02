@@ -16,8 +16,8 @@
 | 钩子 | 动作 |
 |---|---|
 | `on_starting` | 调用 `app.setup_logging()` 配置日志。 |
-| `post_worker_init` | 调用 `app.init_background_services()` 启动 SSDP、STUN 和租期清理线程。 |
-| `worker_exit` | 调用 `app.shutdown_background_services()` 发送 SSDP byebye 并等待线程结束。 |
+| `post_worker_init` | 调用 `app.lifecycle.start()` 启动 SSDP、STUN 和租期清理线程。 |
+| `worker_exit` | 调用 `app.lifecycle.stop()` 发送 SSDP byebye 并等待线程结束。 |
 
 ## 为什么只有一个 Worker
 

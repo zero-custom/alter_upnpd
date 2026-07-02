@@ -1,29 +1,39 @@
 # stun_client.py — STUN External IP Resolution
 
-Discovers the WAN (external) IP address via STUN. Module-level functions (not a class). Provides a background thread that resolves the IP on startup and refreshes every 24 hours.
+Discovers the WAN (external) IP address via STUN. Provides a background daemon thread that resolves the IP on startup via `AppLifecycle` and refreshes every 24 hours.
 
-## Functions
+## Class: `StunClient`
 
-### `init()`
+### Constructor
 
-Starts the background refresh daemon thread. Idempotent — subsequent calls are no-ops. Called from `app.init_background_services()` when `Config.STUN` is enabled.
+| Param | Default | Description |
+|---|---|---|
+| `stun_server` | `"stun.l.google.com:19302"` | STUN server host:port. |
+| `retries` | `4` | Max retries per refresh cycle. |
+| `refresh_interval` | `86400` | Seconds between refreshes (24h). |
+| `fallback_wan_ip` | `"192.0.2.1"` | IP returned when STUN resolution fails. |
 
-### `get_wan_ip() -> str`
+### Methods
 
-Returns the most recently discovered external IP. Thread-safe (protected by a lock). Fallback value is `1.2.3.4`.
+| Method | Returns | Description |
+|---|---|---|
+| `start()` | `None` | Starts the background refresh daemon thread. Idempotent. Clears the ready event. Called from `AppLifecycle.start()`. |
+| `get_wan_ip()` | `str` | Returns the most recently discovered external IP. Thread-safe. Returns fallback `192.0.2.1` before first successful resolution. |
+| `wait_ready(timeout=10.0)` | `bool` | Blocks until the first STUN refresh completes. Returns `True` if ready, `False` on timeout. |
+| `reset_cache()` | `None` | Resets WAN IP to fallback and clears the ready event. For testing only. |
 
-### `reset_cache()`
+### Refresh Flow
 
-Resets the WAN IP back to `1.2.3.4` and allows `init()` to start a new thread. Used for testing.
+1. Resolve STUN server hostname and port from `stun_server`.
+2. Call `py3stun.get_ip_info()` with up to `retries` retries.
+3. On success: store the external IP under a lock, log result, set the ready event.
+4. On failure (all retries exhausted): keep the previous value (or fallback), log warning.
+5. Sleep `refresh_interval` (86400s = 24h), then repeat from step 2.
 
-## Refresh Flow
+## Integration with AppLifecycle
 
-1. Resolve STUN server hostname from `Config.STUN_SERVER` (format `host:port`).
-2. Call `py3stun.get_ip_info()` with up to `_STUN_RETRIES` (4) retries.
-3. On success: store the external IP, log result.
-4. On failure (all retries exhausted): keep the previous value, log warning.
-5. Sleep `_REFRESH_INTERVAL` (86400s = 24h), then repeat from step 2.
+`AppLifecycle.start()` calls `stun_client.start()` then waits up to 10s via `wait_ready()` before starting SSDP. This ensures the initial WAN IP is resolved before UPnP clients can discover the device — preventing clients from receiving the fallback IP `192.0.2.1`.
 
 ## Integration with SOAP Handler
 
-`GetExternalIPAddress` SOAP action calls `stun_client.get_wan_ip()` when `Config.STUN` is enabled. When disabled, it returns the static fallback `1.2.3.4`.
+`GetExternalIPAddress` SOAP action calls `stun_client.get_wan_ip()` when STUN is enabled. When disabled (`STUN=false`), `stun_client` is `None` and the handler returns `192.0.2.1`.

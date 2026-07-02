@@ -35,8 +35,8 @@
 | 属性 | 值 |
 |---|---|
 | 渲染引擎 | pyecharts (ECharts 6.x) |
-| 数据点上限 | `Config.GOST_WEBUI_HISTORY_POINTS`（默认 8640，10 秒间隔 = 24 小时） |
-| 刷新间隔 | `Config.GOST_WEBUI_REFRESH_INTERVAL`（默认 10 秒） |
+| 数据点上限 | `EnvConfig.gost_webui_history_points`（默认 8640，10 秒间隔 = 24 小时） |
+| 刷新间隔 | `EnvConfig.gost_webui_refresh_interval`（默认 10 秒） |
 | 曲线样式 | 直线（`is_smooth=False`），无数据点标记（`is_symbol_show=False`） |
 | 缩放 | dataZoom 默认展示最近 1 小时 |
 | 配色 | 入站蓝色、出站绿色、连接数橙色 |

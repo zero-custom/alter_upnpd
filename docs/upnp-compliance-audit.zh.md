@@ -25,7 +25,7 @@
 | `DeletePortMapping` | ✅ **完整** | 调用 `gost_client.delete_port_mapping()`，404 正常吞掉。Security Mode 检查映射归属——非本人映射返回 714。 |
 | `GetGenericPortMappingEntry` | ✅ **完整** | 按索引遍历，返回标准 UPnP 字段格式 |
 | `GetSpecificPortMappingEntry` | ✅ **完整** | 按协议+外网端口精确查找 |
-| `GetExternalIPAddress` | ✅ **完整** | 通过 STUN 获取公网 IP，回退到 `1.2.3.4` |
+| `GetExternalIPAddress` | ✅ **完整** | 通过 STUN 获取公网 IP，回退到 `192.0.2.1` |
 | `GetStatusInfo` | ⚠️ **占位** | 返回硬编码 `"UPnP Ready"`、`"Connected"`、`1000`（规范允许多种实现） |
 | `GetNATRSIPStatus` | ✅ **正确** | `NATEnabled=true, RSIPAvailable=false` |
 | `SetConnectionType` | ⚠️ **占位** | 返回 501 Action failed（v1.0.2：原 606 改为 501） |
@@ -77,7 +77,7 @@
 
 | 特性 | 状态 | 说明 |
 |---|---|---|
-| NOTIFY 定期 alive | ✅ **正常** | 每 `Config.SSDP_NOTIFY_INTERVAL`（默认 180s）发送 8 条服务/设备通知 |
+| NOTIFY 定期 alive | ✅ **正常** | 每 `EnvConfig.ssdp_notify_interval`（默认 180s）发送 8 条服务/设备通知 |
 | NOTIFY byebye | ✅ **正常** | 进程退出时发送 8 条 byebye |
 | M-SEARCH 响应 | ✅ **正确** | 通过 `_ST_USN_MAP` 匹配 `ST`；`ssdp:all` 返回 8 条响应（每种设备/服务类型各一条） |
 | BOOTID.UPNP.ORG | ✅ **已实现** | 启动时设为 `int(time.time())`，包含在 NOTIFY 和 M-SEARCH 响应中 |

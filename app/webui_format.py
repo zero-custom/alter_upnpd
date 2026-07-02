@@ -3,7 +3,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from gost_client import GostClient
+from gost_client import GostClient, MetricsFilter, PrometheusMetrics
 
 logger = logging.getLogger("alter_upnpd.gost_webui.format")
 
@@ -107,6 +107,12 @@ def _downsample(points: List[DataPoint], max_points: Optional[int] = None) -> Li
 def _record_data_points(cs: ChartState, mappings: List[Dict], stats: Dict) -> None:
     now = time.time()
 
+    def _append(key: str, dp: DataPoint) -> None:
+        hist = cs.history.setdefault(key, [])
+        hist.append(dp)
+        if len(hist) > cs.max_history:
+            hist[:] = hist[-cs.max_history:]
+
     for m in mappings:
         key = f"{m['protocol'].lower()}/{m['external_port']}"
         dp = DataPoint(
@@ -115,10 +121,7 @@ def _record_data_points(cs: ChartState, mappings: List[Dict], stats: Dict) -> No
             speed_out=m.get("speed_out", 0),
             current_conns=m.get("current_conns", 0),
         )
-        hist = cs.history.setdefault(key, [])
-        hist.append(dp)
-        if len(hist) > cs.max_history:
-            hist[:] = hist[-cs.max_history:]
+        _append(key, dp)
 
     cur_input = stats.get("total_input_bytes", 0)
     cur_output = stats.get("total_output_bytes", 0)
@@ -137,17 +140,18 @@ def _record_data_points(cs: ChartState, mappings: List[Dict], stats: Dict) -> No
     cs.prev_total_time = now
 
     total_dp = DataPoint(now, speed_in, speed_out, cur_conns)
-    hist = cs.history.setdefault("__total__", [])
-    hist.append(total_dp)
-    if len(hist) > cs.max_history:
-        hist[:] = hist[-cs.max_history:]
+    _append("__total__", total_dp)
 
 
 # ── Metrics aggregation ──
 
 
-def get_summary_stats(client: GostClient) -> Dict[str, Any]:
-    pm = client.fetch_metrics()
+def get_summary_stats(
+    client: GostClient,
+    pm: Optional[PrometheusMetrics] = None,
+) -> Dict[str, Any]:
+    if pm is None:
+        pm = client.fetch_metrics()
     result: Dict[str, Any] = {
         "total_services": 0,
         "total_current_conns": 0,

@@ -1,6 +1,6 @@
 # lifecycle.py — Background Service Lifecycle
 
-Manages the startup and shutdown of background services: SSDP responder and lease cleanup thread.
+Manages the startup and shutdown of background services: STUN resolution, SSDP responder, and lease cleanup thread.
 
 ## AppLifecycle
 
@@ -15,30 +15,36 @@ Manages the startup and shutdown of background services: SSDP responder and leas
 | `acl_enabled` | Whether ACL is enabled (logged at startup). |
 | `acl_allowed_subnets` | Allowed subnets string (logged at startup). |
 | `version` | Application version string (logged at startup). |
+| `stun_client` | `StunClient \| None` — STUN client instance. `None` when STUN is disabled. |
 | `shutdown_timeout` | Max seconds to wait for SSDP thread on shutdown. |
 
 ### Methods
 
 | Method | Returns | Description |
 |---|---|---|
-| `shutdown_event` (property) | `threading.Event` or `None` | The shutdown event used to signal background threads. |
-| `start()` | `threading.Event` | Starts SSDP and lease cleanup threads. Returns the shutdown event. |
+| `shutdown_event` (property) | `threading.Event` or `None` | The shutdown event used to signal background threads. `None` before `start()` is called. |
+| `start()` | `threading.Event` | Starts STUN, SSDP, and lease cleanup threads. Returns the shutdown event. |
 | `stop()` | `None` | Signals shutdown, sends SSDP byebye, joins threads. |
 
 ### Threads
 
 | Thread | Name | Daemon | Function |
 |---|---|---|---|
-| SSDP responder | `ssdp` | No | Runs `asyncio.run(SSDPResponder.start())`. Joined on stop. |
+| STUN | — | Yes | Runs `StunClient._refresh_loop()`. Started inside `start()` via `StunClient.start()`. Daemon, auto-exits on process exit. |
+| SSDP responder | `ssdp` | No | Runs `asyncio.run(SSDPResponder.start())`. Joined on stop for clean byebye. |
 | Lease cleanup | `lease-cleanup` | Yes | Polls `GostClient.get_expired_services()`, deletes expired, sleeps. |
 
 ### Startup Flow
 
 1. Logs version, device location, GOST API URL, ACL status.
-2. Creates `threading.Event` for shutdown signalling.
-3. Starts SSDP responder thread.
-4. Starts lease cleanup daemon thread.
-5. Returns the shutdown event.
+2. Starts STUN client (if configured):
+   - Spawns a daemon thread that immediately performs the first STUN resolution, then refreshes every 24h.
+   - Waits up to 10 seconds via `wait_ready()` for the first resolution to complete.
+   - If STUN times out, logs a warning and continues — the refresh loop will retry.
+3. Creates `threading.Event` for shutdown signalling.
+4. Starts SSDP responder thread.
+5. Starts lease cleanup daemon thread.
+6. Returns the shutdown event.
 
 ### Shutdown Flow
 

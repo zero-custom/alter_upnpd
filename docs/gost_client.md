@@ -29,6 +29,9 @@ Low-level HTTP transport. Handles authentication, retry, and timeout. Used by bo
 ```python
 transport = GostTransport(base_url, timeout=10, retries=2, username="", password="")
 transport.request("GET", "/config/services")
+
+# Connectivity check
+transport.is_available()  # Pings /config/services with 5s timeout
 ```
 
 ## `PortMappingRepository`
@@ -37,7 +40,6 @@ Port mapping CRUD with service cache and expiry. Focused on one concern: reading
 
 | Method | Description |
 |---|---|
-| `is_available()` | Pings `/config/services` with 5s timeout. |
 | `get_services()` | Fetches all services from GOST. Cached (30s TTL). Returns `[]` on failure. |
 | `add_port_mapping(...)` | Single POST to `/config/services` with inline `forwarder.nodes`. |
 | `update_port_mapping(...)` | PUT `/config/services/{name}` in-place update (refreshes `created_at`). |

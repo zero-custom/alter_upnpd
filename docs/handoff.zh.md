@@ -23,7 +23,7 @@
 - 新增环境变量：`GOST_WEBUI_REFRESH_INTERVAL`、`GOST_WEBUI_HISTORY_POINTS`、`GOST_METRICS_URL`。
 
 ## 项目状态
-- 三个 SOAP 注册表：`SOAP_ACTIONS`（WANIPConnection）、`CIC_ACTIONS`（WANCommonInterfaceConfig）、`L3F_ACTIONS`（Layer3Forwarding）。
+- 三个 SOAP 注册表：`_SOAP_HANDLERS`（WANIPConnection）、`_CIC_HANDLERS`（WANCommonInterfaceConfig）、`_L3F_HANDLERS`（Layer3Forwarding）。
 - `webui.py` 通过 `pywebio.platform.flask.webio_view` 完整整合进 Flask 应用。
 - `AGENTS.md`、`.env.example` 和所有程序文档已为 v1.2.0 更新。
 - 保留之前会话的工作（metadata lease、lease cap、TTL 缓存、上游 IGD 同步）。

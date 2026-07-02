@@ -30,7 +30,7 @@ XML templates are loaded from `app/xml/` using Jinja2 via `TemplateRenderer` (`t
 | Function | Description |
 |---|---|
 | `get_local_ip()` | Discovers local IP via `socket.connect()` to `10.255.255.255:1`. Falls back to `127.0.0.1`. |
-| `get_local_port()` | Returns `Config.LISTEN_PORT`. |
+| `get_local_port()` | Returns `EnvConfig.listen_port`. |
 | `get_location()` | Returns `http://{ip}:{port}/rootDesc.xml`. |
 
 ## Background Services
@@ -39,9 +39,9 @@ Initiated via `AppLifecycle.start()` (`lifecycle.py`), launched on application s
 
 | Service | Module | Description |
 |---|---|---|
-| SSDP responder | `ssdp_responder.py` | Sends periodic `ssdp:alive` NOTIFY announcements (every `Config.SSDP_NOTIFY_INTERVAL` sec). |
-| Lease cleanup | `lifecycle.py` | Scans all services for expired leases (every `Config.LEASE_CLEANUP_INTERVAL` sec), deletes expired ones. |
-| STUN client | `stun_client.py` | If `Config.STUN` is enabled, starts STUN refresh thread for external IP discovery. |
+| SSDP responder | `ssdp_responder.py` | Sends periodic `ssdp:alive` NOTIFY announcements (every `EnvConfig.ssdp_notify_interval` sec). |
+| Lease cleanup | `lifecycle.py` | Scans all services for expired leases (every `EnvConfig.lease_cleanup_interval` sec), deletes expired ones. |
+| STUN client | `stun_client.py` | If `EnvConfig.stun` is enabled, starts STUN refresh thread for external IP discovery. |
 
 `AppLifecycle.stop()` sends SSDP `ssdp:byebye` notifications and joins the SSDP thread.
 

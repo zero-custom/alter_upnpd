@@ -23,7 +23,7 @@
 - New env vars: `GOST_WEBUI_REFRESH_INTERVAL`, `GOST_WEBUI_HISTORY_POINTS`, `GOST_METRICS_URL`.
 
 ## Project State
-- Three SOAP registries: `SOAP_ACTIONS` (WANIPConnection), `CIC_ACTIONS` (WANCommonInterfaceConfig), `L3F_ACTIONS` (Layer3Forwarding).
+- Three SOAP registries: `_SOAP_HANDLERS` (WANIPConnection), `_CIC_HANDLERS` (WANCommonInterfaceConfig), `_L3F_HANDLERS` (Layer3Forwarding).
 - `webui.py` fully integrated into Flask app via `pywebio.platform.flask.webio_view`.
 - `AGENTS.md`, `.env.example`, and all program docs updated for v1.2.0.
 - Previous session work (metadata lease, lease cap, TTL cache, upstream IGD sync) preserved.

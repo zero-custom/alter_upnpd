@@ -25,7 +25,7 @@ Handler: `upnp_soap.py → UPnPSOAPHandler.handle_ipconnection()`
 | `DeletePortMapping` | ✅ **Complete** | Calls `gost_client.delete_port_mapping()`, 404 silently handled. Security Mode checks mapping ownership — returns 714 if owned by different client. |
 | `GetGenericPortMappingEntry` | ✅ **Complete** | Iterates by index, returns standard UPnP field format |
 | `GetSpecificPortMappingEntry` | ✅ **Complete** | Finds exact match by protocol + external port |
-| `GetExternalIPAddress` | ✅ **Complete** | Gets public IP via STUN, falls back to `1.2.3.4` |
+| `GetExternalIPAddress` | ✅ **Complete** | Gets public IP via STUN, falls back to `192.0.2.1` |
 | `GetStatusInfo` | ⚠️ **Placeholder** | Returns hardcoded `"UPnP Ready"`, `"Connected"`, `1000` (spec allows multiple interpretations) |
 | `GetNATRSIPStatus` | ✅ **Correct** | `NATEnabled=true, RSIPAvailable=false` |
 | `SetConnectionType` | ⚠️ **Placeholder** | Returns 501 Action failed (v1.0.2: changed from 606 to 501) |
@@ -77,7 +77,7 @@ Handler: `upnp_soap.py → handle_l3forwarding()`
 
 | Feature | Status | Notes |
 |---|---|---|
-| NOTIFY periodic alive | ✅ **Working** | Sends 8 service/device notifications every `Config.SSDP_NOTIFY_INTERVAL` (default 180s) |
+| NOTIFY periodic alive | ✅ **Working** | Sends 8 service/device notifications every `EnvConfig.ssdp_notify_interval` (default 180s) |
 | NOTIFY byebye | ✅ **Working** | Sends 8 byebye notifications on shutdown |
 | M-SEARCH response | ✅ **Correct** | Matches `ST` request via `_ST_USN_MAP`; `ssdp:all` returns 8 responses (one per device/service type) |
 | BOOTID.UPNP.ORG | ✅ **Implemented** | Set to `int(time.time())` on boot, included in NOTIFY and M-SEARCH responses |
