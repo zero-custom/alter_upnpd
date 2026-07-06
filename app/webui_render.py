@@ -12,7 +12,7 @@ from pywebio.pin import *
 from gost_client import GostApiError, GostConnectionError
 from webui_format import (
     _CHART_COLORS, _CHART_NAMES, _COLORS,
-    _downsample, _fmt_bytes, _fmt_duration, _fmt_speed, _fmt_time,
+    _downsample, _fmt_bytes, _fmt_duration, _fmt_speed,
     _prepare_summary_data,
     ChartState, DataPoint,
 )
@@ -64,7 +64,7 @@ def _build_echarts_html(
         return f'<div id="{chart_id}" style="width:100%;height:{height}px;"></div>'
 
     pts = _downsample(points, max_points=cs.display_max)
-    times = [_fmt_time(p.timestamp) for p in pts]
+    times = [int(p.timestamp * 1000) for p in pts]
     data_in  = [round(p.speed_in, 1) for p in pts]
     data_out = [round(p.speed_out, 1) for p in pts]
     data_conns = [p.current_conns for p in pts]
@@ -119,6 +119,7 @@ def _build_echarts_html(
             legend_opts=opts.LegendOpts(pos_top="top", pos_left="left"),
             tooltip_opts=opts.TooltipOpts(trigger="axis"),
             xaxis_opts=opts.AxisOpts(
+                type_="time",
                 boundary_gap=False,
                 axislabel_opts=opts.LabelOpts(rotate=45, font_size=9),
             ),
@@ -162,7 +163,6 @@ def _build_echarts_html(
 
 
 def _init_chart(cs: ChartState) -> None:
-    """创建图表容器（仅首次调用）。由 main() 调用。"""
     total_pts = cs.history.get("__total__", [])
     with use_scope("charts", clear=True):
         window = total_pts[-_WINDOW_SIZE:] if len(total_pts) >= _WINDOW_SIZE else total_pts
@@ -170,7 +170,6 @@ def _init_chart(cs: ChartState) -> None:
 
 
 def _render_charts(cs: ChartState) -> None:
-    """增量更新图表数据，不重建 DOM。由 _refresh() 调用。"""
     total_pts = cs.history.get("__total__", [])
     if not total_pts:
         return
@@ -389,12 +388,12 @@ _TABLE_INIT_SCRIPT = """<script>
     if (!portKey) return;
     var chart = echarts.init(chartDiv);
     function _opts(pts) {
-      var times = pts.map(function(p){var d=new Date(p[0]*1000);return('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2)});
+      var times = pts.map(function(p){return p[0]*1000});
       var zs=0;if(pts.length>1){var tr=pts[pts.length-1][0]-pts[0][0];if(tr>3600)zs=Math.round((1-3600/tr)*100*100)/100;}
       return {
         tooltip:{trigger:'axis'}, legend:{top:'top',left:'left'},
         grid:{left:'3%',right:'4%',bottom:'18%',containLabel:true},
-        xAxis:{type:'category',data:times,boundaryGap:false,axisLabel:{rotate:45,fontSize:9}},
+        xAxis:{type:'time',data:times,boundaryGap:false,axisLabel:{rotate:45,fontSize:9}},
         yAxis:[{type:'value',name:'\u5e26\u5bbd',axisLabel:{formatter:function(v){return v>=1e6?(v/1e6).toFixed(1)+'MB/s':v>=1e3?(v/1e3).toFixed(1)+'KB/s':v.toFixed(0)+'B/s'}}},{type:'value',name:'\u8fde\u63a5\u6570'}],
         dataZoom:[{type:'inside',start:zs,end:100},{type:'slider',start:zs,end:100,height:10}],
         series:[

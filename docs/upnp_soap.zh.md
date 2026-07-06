@@ -27,7 +27,7 @@
 所有分发器共享 `_handle_service_request()`：
 1. 检查 ACL（若 `EnvConfig.acl_enabled`）——阻止不在 `EnvConfig.acl_allowed_subnets` 中的 IP。
 2. 从 Flask 请求中读取原始 SOAP XML 体。
-3. 通过 `parse_soap_body()` 解析出动作名和参数。
+3. 通过 `SoapBodyParser.parse_body()` 解析出动作名和参数。
 4. 从 `SOAPAction` 头中嗅探动作名（解析失败时退回到从请求体中提取）。
 5. 在注册表中查找处理器并调用，传入解析后的参数。
 6. 以 Flask `Response` 形式返回处理器的 XML 响应。
@@ -69,7 +69,7 @@
 
 ## 命名空间处理
 
-`build_soap_response()` 接受可选的 `service_urn` 参数，默认为最后设置的 `_current_service_urn`。WANIPConnection 和 WANPPPConnection 请求都走 `handle_wanipconnection()`。
+`SoapBodyParser.build_success_response()` 接受可选的 `service_urn` 参数。处理器按请求追踪 `_current_service_urn` 以实现命名空间无关的响应。WANIPConnection 和 WANPPPConnection 请求都走 `handle_wanipconnection()`。
 
 ## 错误处理
 

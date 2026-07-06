@@ -16,6 +16,7 @@
 | `acl_allowed_subnets` | 允许的子网（启动时记录日志）。 |
 | `version` | 应用版本字符串（启动时记录日志）。 |
 | `stun_client` | `StunClient \| None` — STUN 客户端实例。STUN 禁用时为 `None`。 |
+| `upstream_client` | `UpstreamClient \| None` — 上游 IGD 客户端，用于 reconcile 同步。上游同步未配置时为 `None`。 |
 | `shutdown_timeout` | 关闭时等待 SSDP 线程的最大秒数。 |
 
 ### 方法
@@ -32,7 +33,7 @@
 |---|---|---|---|
 | STUN | — | 是 | 运行 `StunClient._refresh_loop()`。在 `start()` 中通过 `StunClient.start()` 启动。进程退出时自动结束。 |
 | SSDP 响应器 | `ssdp` | 否 | 运行 `asyncio.run(SSDPResponder.start())`。关闭时等待结束以发送 byebye。 |
-| 租期清理 | `lease-cleanup` | 是 | 轮询 `GostClient.get_expired_services()`，删除过期条目，休眠。 |
+| 租期清理 | `lease-cleanup` | 是 | 轮询 `GostClient.get_expired_services()`，删除过期条目。然后调用 `UpstreamClient.reconcile()` 检查并恢复上游 IGD 中丢失的映射。休眠 `lease_cleanup_interval` 秒。 |
 
 ### 启动流程
 

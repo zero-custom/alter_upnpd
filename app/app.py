@@ -68,7 +68,10 @@ gost_client = GostClient(
     password=cfg.gost_api_password,
     metrics_url=cfg.gost_metrics_url,
 )
-upstream = UpstreamClient(upstream_igd_url=cfg.upstream_igd_url)
+upstream = UpstreamClient(
+    upstream_igd_url=cfg.upstream_igd_url,
+    upstream_internal_host=cfg.upstream_internal_host,
+)
 
 stun_client = StunClient(stun_server=cfg.stun_server) if cfg.stun else None
 
@@ -111,6 +114,7 @@ lifecycle = AppLifecycle(
     acl_allowed_subnets=cfg.acl_allowed_subnets,
     version=VERSION,
     stun_client=stun_client,
+    upstream_client=upstream,
 )
 
 render_xml = template.render

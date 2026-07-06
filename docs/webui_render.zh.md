@@ -8,7 +8,7 @@
 |---|---|
 | `render_dashboard(client, cs)` | 主仪表板渲染函数：摘要卡片、映射表、每端口详情弹窗、聚合图表。 |
 | `_render_table(mappings, stats)` | 渲染端口映射表，显示每端口的速率、连接数、流量和操作按钮。 |
-| `_build_echarts_html(cs)` | 构建 ECharts 折线图（入站/出站速率、连接数），含所有端口及聚合视图。 |
+| `_build_echarts_html(cs)` | 构建 ECharts 折线图，x 轴使用 `type: "time"`（毫秒时间戳，非格式化字符串）。支持降采样和 dataZoom 默认展示最近 1 小时。 |
 | `_delete_selected(client, selected_names)` | 批量删除处理器：通过弹窗确认后逐个删除选中的映射。 |
 
 ## UI 组件
@@ -31,5 +31,14 @@
 ## 说明
 
 - ECharts 通过 RequireJS 加载，`_ECHARTS_CDN_JS` 中包含 CDN fallback 路径。
-- 图表使用 LTTB 风格降采样（`_downsample`）以优化大数据集的性能。
+- 图表使用 LTTB 风格降采样（`_downsample`，阈值 1000 点）以优化大数据集的性能。此前为死代码——`display_max` 现已与 `max_history` 解耦。
 - CSS 内联在 `_CUSTOM_CSS` 中（无外部样式表依赖）。
+
+## 时间轴
+
+所有 ECharts 图表（主聚合图 + 各端口详情图）均使用 `type: "time"` x 轴：
+
+- **数据格式**：毫秒级 Unix 时间戳（`int(p.timestamp * 1000)`），传入 `add_xaxis()`。
+- **标签格式化**：ECharts 根据缩放级别自动格式化轴标签——放大时显示时间，缩小时显示日期+时间。无需手动调用 `_fmt_time()`。
+- **跨午夜处理**：原生时间轴消除了分类轴在 `HH:MM:SS` 字符串跨日重复时导致的折线失真问题。
+- **详情图表**：`_TABLE_INIT_SCRIPT` 中的内联 JS 采用相同的 `type:'time'` 模式，时间戳来自 `window._portData`（存储为秒，渲染时转换为毫秒）。

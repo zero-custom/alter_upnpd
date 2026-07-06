@@ -15,9 +15,9 @@ Data formatting, metrics aggregation, downsample, and chart state management for
 |---|---|---|---|
 | `_fmt_bytes(n)` | `int` | `"1.5MB"` | Human-readable byte size. |
 | `_fmt_duration(sec)` | `int` | `"2d 3h 15m 30s"` | Human-readable duration. |
-| `_fmt_time(ts)` | `float` | `"14:30:00"` | HH:MM:SS from Unix timestamp. |
+| `_fmt_time(ts)` | `float` | `"14:30:00"` | HH:MM:SS from Unix timestamp. **No longer used in chart rendering** — ECharts time axis handles formatting natively. |
 | `_fmt_speed(bps)` | `float` | `"1.5MB/s"` | Human-readable byte rate. |
-| `_downsample(points, max)` | `List[DataPoint]` | `List[DataPoint]` | LTTB-style downsample for chart performance. |
+| `_downsample(points, max)` | `List[DataPoint]` | `List[DataPoint]` | LTTB-style downsample for chart performance. Active with `display_max=1000` vs `max_history=8640`. |
 
 ## Data Functions
 

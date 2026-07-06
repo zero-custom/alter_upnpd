@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.2 (2026-07-05)
+
+### Fixed
+
+- **图表时间轴失真**：ECharts x 轴从 `type: 'category'` + `HH:MM:SS` 字符串切换为 `type: 'time'` + 毫秒时间戳 (`int(p.timestamp * 1000)`)。消除跨零点（24h+ 运行）标签重复导致的折线跳跃。主聚合图与各端口详情图同步修复。
+- **降采样死代码**：`display_max` 与 `max_history` 解耦，从 `8640=8640` 改为 `min(history_points, 1000)` vs `8640`。`_downsample()` 正式生效，8640 点降至 ≤1000 点渲染，减少浏览器内存压力。
+
+### Cleanup
+
+- **死代码删除**：移除 `upnp_soap.py` 中无调用者的 `parse_soap_body()` / `build_soap_response()` / `build_fault_response()`；移除 `webui_probe.py` 中无调用者的 `Probe.on()` / `off()` / `active` 及 `Callable` import；移除 `upstream_client.py` 中未使用的 `Optional` import；移除 `debug_launcher.py` 中未使用的 `sys` import；移除 `webui.py` 中不再引用的 `get_all_services_stats` import。
+- **`_fmt_time` 去重**：删除 `debug_launcher.py`/`webui_probe.py` 中的本地副本，统一从 `webui_format` 导入。
+- **零 docstring 政策**：移除全部 7 处文档字符串（`debug_launcher.py` 模块、`stun_client.py:wait_ready`、`upstream_client.py:reconcile`、`webui_probe.py` 模块 + `Probe` 类、`webui_render.py:_init_chart` + `_render_charts`）。知识全部迁移至 `docs/` 目录。
+
+---
+
 ## 1.3.1 (2026-07-02)
 
 ### Fixed

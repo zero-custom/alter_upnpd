@@ -6,6 +6,9 @@ from config import AppConfig
 from gost_client import GostClient
 from stun_client import StunClient
 
+if __name__ != "__main__":
+    from upstream_client import UpstreamClient
+
 logger = logging.getLogger("alter_upnpd.lifecycle")
 
 
@@ -20,6 +23,7 @@ class AppLifecycle:
         acl_allowed_subnets: str,
         version: str,
         stun_client: StunClient | None = None,
+        upstream_client: Optional["UpstreamClient"] = None,
         shutdown_timeout: int = AppConfig.SHUTDOWN_TIMEOUT,
     ):
         self._gost = gost_client
@@ -30,6 +34,7 @@ class AppLifecycle:
         self._acl_allowed_subnets = acl_allowed_subnets
         self._version = version
         self._stun_client = stun_client
+        self._upstream_client = upstream_client
         self._shutdown_timeout = shutdown_timeout
 
         self._shutdown_event: Optional[threading.Event] = None
@@ -117,4 +122,17 @@ class AppLifecycle:
                         entry["service_name"],
                         e,
                     )
+
+            if self._upstream_client is not None:
+                try:
+                    mappings = self._gost.get_port_mappings()
+                    restored, failed = self._upstream_client.reconcile(mappings)
+                    if restored > 0 or failed > 0:
+                        logger.info(
+                            "Upstream reconcile: %d restored, %d failed",
+                            restored, failed,
+                        )
+                except Exception as e:
+                    logger.warning("Upstream reconcile error: %s", e)
+
             shutdown_event.wait(self._lease_cleanup_interval)

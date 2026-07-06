@@ -38,6 +38,7 @@
 | 数据点上限 | `EnvConfig.gost_webui_history_points`（默认 8640，10 秒间隔 = 24 小时） |
 | 刷新间隔 | `EnvConfig.gost_webui_refresh_interval`（默认 10 秒） |
 | 曲线样式 | 直线（`is_smooth=False`），无数据点标记（`is_symbol_show=False`） |
+| X 轴 | ECharts `type: "time"`，毫秒级 Unix 时间戳（自动格式化标签：放大显示时间，缩小显示日期+时间） |
 | 缩放 | dataZoom 默认展示最近 1 小时 |
 | 配色 | 入站蓝色、出站绿色、连接数橙色 |
 | 图表加载 | ECharts 从本地 `/static/echarts.min` 加载（CDN 仅启动时检查） |

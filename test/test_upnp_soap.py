@@ -41,13 +41,13 @@ def _soap_body(action: str, **kwargs) -> str:
 class TestParseSoapBody:
     def test_parses_action_and_params(self, handler):
         xml = _soap_body("AddPortMapping", NewExternalPort="8080", NewProtocol="TCP")
-        result = handler.parse_soap_body(xml)
+        result = handler._xml.parse_body(xml)
         assert result["action"] == "AddPortMapping"
         assert result["params"]["NewExternalPort"] == "8080"
         assert result["params"]["NewProtocol"] == "TCP"
 
     def test_returns_empty_on_garbage(self, handler):
-        assert handler.parse_soap_body("not xml") == {}
+        assert handler._xml.parse_body("not xml") == {}
 
     def test_returns_empty_on_empty_body(self, handler):
         xml = '''<?xml version="1.0"?>
@@ -55,7 +55,7 @@ class TestParseSoapBody:
   <s:Body>
   </s:Body>
 </s:Envelope>'''
-        result = handler.parse_soap_body(xml)
+        result = handler._xml.parse_body(xml)
         assert result == {}
 
 
@@ -64,12 +64,12 @@ class TestParseSoapBody:
 
 class TestBuildSoapResponse:
     def test_basic_response(self, handler):
-        xml = handler.build_soap_response("AddPortMapping")
+        xml = handler._xml.build_success_response("AddPortMapping")
         assert "AddPortMappingResponse" in xml
         assert "urn:schemas-upnp-org:service:WANIPConnection:1" in xml
 
     def test_with_return_values(self, handler):
-        xml = handler.build_soap_response(
+        xml = handler._xml.build_success_response(
             "GetExternalIPAddress", {"NewExternalIPAddress": "1.2.3.4"}
         )
         assert "1.2.3.4" in xml
@@ -78,7 +78,7 @@ class TestBuildSoapResponse:
 
 class TestBuildFaultResponse:
     def test_fault_with_error_code(self, handler):
-        xml = handler.build_fault_response("s:Client", 402)
+        xml = handler._xml.build_error_response("s:Client", 402)
         assert "Fault" in xml
         assert "s:Client" in xml
 

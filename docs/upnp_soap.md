@@ -27,7 +27,7 @@ Actions are registered as plain dict entries — method names mapped to handler 
 All dispatchers share `_handle_service_request()` which:
 1. Checks ACL (if `EnvConfig.acl_enabled`) — blocks IPs not in `EnvConfig.acl_allowed_subnets`.
 2. Reads the raw SOAP XML body from the Flask request.
-3. Parses via `parse_soap_body()` to extract action name and parameters.
+3. Parses via `SoapBodyParser.parse_body()` to extract action name and parameters.
 4. Sniffs the `SOAPAction` header to determine the action name (falls back to parsed body action).
 5. Looks up the handler in the registry and calls it with parsed parameters.
 6. Returns the handler's XML response as a Flask `Response`.
@@ -69,7 +69,7 @@ All dispatchers share `_handle_service_request()` which:
 
 ## Namespace Handling
 
-`build_soap_response()` accepts an optional `service_urn` parameter that defaults to the last set `_current_service_urn`. WANIPConnection and WANPPPConnection requests both hit `handle_wanipconnection()`.
+`SoapBodyParser.build_success_response()` accepts an optional `service_urn` parameter. The handler tracks `_current_service_urn` per request for namespace-agnostic responses. WANIPConnection and WANPPPConnection requests both hit `handle_wanipconnection()`.
 
 ## Error Handling
 

@@ -16,6 +16,7 @@ Manages the startup and shutdown of background services: STUN resolution, SSDP r
 | `acl_allowed_subnets` | Allowed subnets string (logged at startup). |
 | `version` | Application version string (logged at startup). |
 | `stun_client` | `StunClient \| None` — STUN client instance. `None` when STUN is disabled. |
+| `upstream_client` | `UpstreamClient \| None` — upstream IGD client for reconcile. `None` when upstream sync is not configured. |
 | `shutdown_timeout` | Max seconds to wait for SSDP thread on shutdown. |
 
 ### Methods
@@ -32,7 +33,7 @@ Manages the startup and shutdown of background services: STUN resolution, SSDP r
 |---|---|---|---|
 | STUN | — | Yes | Runs `StunClient._refresh_loop()`. Started inside `start()` via `StunClient.start()`. Daemon, auto-exits on process exit. |
 | SSDP responder | `ssdp` | No | Runs `asyncio.run(SSDPResponder.start())`. Joined on stop for clean byebye. |
-| Lease cleanup | `lease-cleanup` | Yes | Polls `GostClient.get_expired_services()`, deletes expired, sleeps. |
+| Lease cleanup | `lease-cleanup` | Yes | Polls `GostClient.get_expired_services()`, deletes expired mappings. Then calls `UpstreamClient.reconcile()` with current GOST mappings to restore any missing upstream IGD entries. Sleeps `lease_cleanup_interval` seconds. |
 
 ### Startup Flow
 

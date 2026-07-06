@@ -13,9 +13,9 @@ from pywebio.exceptions import SessionNotFoundException
 from gost_client import GostApiError, GostClient, GostConnectionError, MetricsFilter
 from webui_format import (
     ChartState, DataPoint,
-    _downsample, _fmt_bytes, _fmt_duration, _fmt_speed, _fmt_time,
+    _downsample, _fmt_bytes, _fmt_duration, _fmt_speed,
     _prepare_summary_data, _record_data_points,
-    get_summary_stats, get_all_services_stats,
+    get_summary_stats,
 )
 import webui_render as render
 
@@ -57,7 +57,7 @@ def init(
     _gost_client = gost_client
     _refresh_interval = refresh_interval
     _state.chart.max_history = history_points
-    _state.chart.display_max = history_points
+    _state.chart.display_max = min(history_points, 1000)
 
 
 # ── Background collector (single writer) ──

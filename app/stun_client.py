@@ -38,8 +38,6 @@ class StunClient:
             return self._wan_ip
 
     def wait_ready(self, timeout: float = 10.0) -> bool:
-        """Block until first STUN refresh completes (or timeout).
-        Returns True if ready, False on timeout."""
         return self._ready.wait(timeout)
 
     def reset_cache(self) -> None:

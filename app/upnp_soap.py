@@ -41,21 +41,6 @@ class UPnPSOAPHandler:
 
     _xml = SoapBodyParser  # static methods
 
-    # ── Backward compat: delegate to SoapBodyParser ──
-
-    def parse_soap_body(self, xml_data: str) -> dict:
-        return self._xml.parse_body(xml_data)
-
-    def build_soap_response(self, action_name: str, return_values: dict = None,
-                            service_urn: str = None) -> str:
-        return self._xml.build_success_response(
-            action_name, return_values,
-            service_urn or getattr(self, '_current_service_urn', None),
-        )
-
-    def build_fault_response(self, fault_string: str, error_code: int | None = None) -> str:
-        return self._xml.build_error_response(fault_string, error_code)
-
     def __init__(
         self,
         gost_client: GostClient,

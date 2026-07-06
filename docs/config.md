@@ -34,7 +34,7 @@ from config import StunConfig
 # app.py
 from config import AppConfig
 # AppConfig.SHUTDOWN_TIMEOUT  → 5
-# AppConfig.VERSION           → "1.3.1"
+# AppConfig.VERSION           → "1.3.2"
 ```
 
 ## Environment variables (PART 1)

@@ -97,7 +97,7 @@ class GunicornConfig:
 
 class AppConfig:
     SHUTDOWN_TIMEOUT = 5
-    VERSION = "1.3.1"
+    VERSION = "1.3.2"
 
 
 # ═══════════════════════════════════════════════════════

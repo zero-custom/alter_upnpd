@@ -8,7 +8,7 @@ Renders the GOST WebUI dashboard using PyWebIO components (cards, tables, modals
 |---|---|
 | `render_dashboard(client, cs)` | Main dashboard render: summary cards, mapping table, per-port detail modal, aggregate charts. |
 | `_render_table(mappings, stats)` | Renders the port mapping table with per-port speed, connections, traffic, and action buttons. |
-| `_build_echarts_html(cs)` | Builds ECharts line charts (input/output speed, connections) for all ports plus aggregate. |
+| `_build_echarts_html(cs)` | Builds ECharts line charts with `type: "time"` x-axis (millisecond timestamps, not formatted strings). Supports downsampling and dataZoom defaulting to last 1 hour. |
 | `_delete_selected(client, selected_names)` | Batch delete handler: confirms via modal, deletes each selected mapping. |
 
 ## UI Components
@@ -31,5 +31,14 @@ Renders the GOST WebUI dashboard using PyWebIO components (cards, tables, modals
 ## Notes
 
 - ECharts is loaded via RequireJS with a CDN fallback path in `_ECHARTS_CDN_JS`.
-- Charts use LTTB-style downsampling via `_downsample` for performance with large datasets.
+- Charts use LTTB-style downsampling via `_downsample` (threshold: 1000 points) for performance with large datasets. Previously dead code — `display_max` is now decoupled from `max_history`.
 - CSS is inlined in `_CUSTOM_CSS` (no external stylesheet dependency).
+
+## Time Axis
+
+All ECharts charts (main aggregate + per-port detail) use `type: "time"` x-axis:
+
+- **Data format**: Millisecond Unix timestamps (`int(p.timestamp * 1000)`) passed to `add_xaxis()`.
+- **Label formatting**: ECharts auto-formats axis labels based on zoom level — shows time when zoomed in, date+time when zoomed out. No manual `_fmt_time()` call needed.
+- **Cross-midnight handling**: Native time axis eliminates the category-axis duplicate-label distortion that occurred when `HH:MM:SS` strings repeated across dates.
+- **Detail charts**: Inline JS in `_TABLE_INIT_SCRIPT` uses the same `type:'time'` pattern with timestamps from `window._portData` (stored in seconds, converted to ms at render time).

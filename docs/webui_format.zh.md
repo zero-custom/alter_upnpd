@@ -15,9 +15,9 @@ GOST WebUI 仪表板的数据格式化、指标聚合、降采样和图表状态
 |---|---|---|---|
 | `_fmt_bytes(n)` | `int` | `"1.5MB"` | 人类可读的字节大小。 |
 | `_fmt_duration(sec)` | `int` | `"2d 3h 15m 30s"` | 人类可读的持续时间。 |
-| `_fmt_time(ts)` | `float` | `"14:30:00"` | 从 Unix 时间戳转 HH:MM:SS。 |
+| `_fmt_time(ts)` | `float` | `"14:30:00"` | 从 Unix 时间戳转 HH:MM:SS。**不再用于图表渲染**——ECharts 时间轴原生处理标签格式化。 |
 | `_fmt_speed(bps)` | `float` | `"1.5MB/s"` | 人类可读的字节速率。 |
-| `_downsample(points, max)` | `List[DataPoint]` | `List[DataPoint]` | LTTB 风格降采样，优化图表性能。 |
+| `_downsample(points, max)` | `List[DataPoint]` | `List[DataPoint]` | LTTB 风格降采样，优化图表性能。当前 `display_max=1000` vs `max_history=8640` 已生效。 |
 
 ## 数据函数
 
