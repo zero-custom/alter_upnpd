@@ -42,6 +42,15 @@ upnpc -l
 upnpc -l -u http://host.docker.internal:5000/rootDesc.xml
 ```
 
+### WebUI 监控仪表板
+
+浏览器访问 `http://alter_upnpd:5000/` 查看实时监控仪表板：
+
+- **概览卡片**：映射数、活动连接、总流量、错误数
+- **流量趋势图**：入站/出站带宽 + 连接数折线图（24 小时窗口），支持拖拽缩放
+- **端口映射表格**：可展开详情行查看各端口独立流量图表，支持批量删除
+- **添加映射**：折叠式表单快速创建端口映射
+
 ## Usage
 
 ### docker-compose
@@ -105,7 +114,12 @@ docker run -d \
 | `-e SSDP_NOTIFY_INTERVAL=180` | SSDP 公告间隔（秒） |
 | `-e GOST_API_USERNAME=user` | GOST API 认证用户名（建议项，与 `GOST_API_PASSWORD` 同时设置才生效） |
 | `-e GOST_API_PASSWORD=pass` | GOST API 认证密码 |
-| `-e UPSTREAM_IGD_URL=http://192.168.1.1:5000/rootDesc.xml` | 上游 IGD rootDesc.xml URL（空=禁用）。设置后端口映射自动同步到上游 IGD |
+| `-e GOST_METRICS_URL=http://host.docker.internal:8000/metrics` | Prometheus metrics URL（空=自动发现） |
+| `-e GOST_WEBUI_REFRESH_INTERVAL=10` | WebUI 仪表板刷新间隔（秒） |
+| `-e GOST_WEBUI_HISTORY_POINTS=8640` | 每端口存储的数据点上限 |
+| `-e UPSTREAM_IGD_URL=http://192.168.1.1:5000/rootDesc.xml` | 上游 IGD rootDesc.xml URL（空=禁用）。设置后端口映射自动同步到上游 IGD，并每 60 秒自动巡检恢复丢失的映射 |
+| `-e UPSTREAM_INTERNAL_HOST=192.168.1.100` | 同步到上游 IGD 时覆写 `NewInternalClient`（空=让上游 IGD 自动填入 SOAP 请求源 IP） |
+| `-e FALLBACK_WAN_IP=192.0.2.1` | STUN 探测失败时的备用外网 IP。**建议设置为公网 IP**，个别 UPnP 客户端在 `GetExternalIPAddress` 返回内网/保留地址时可能取消已建立的端口映射 |
 
 ### 引导脚本 docker.sh
 
@@ -157,13 +171,20 @@ docker build -t zerocustom/alter_upnpd:latest .
 │   ├── ssdp_responder.py    # SSDP 发现协议（端口 1900）
 │   ├── stun_client.py       # STUN 外网 IP 发现
 │   ├── upnp_soap.py         # SOAP 动作处理器
+│   ├── upstream_client.py   # 上游 IGD 端口映射同步与自动恢复
+│   ├── lifecycle.py         # SSDP/租赁清理/上游同步 后台线程生命周期
 │   ├── webui.py             # PyWebIO + ECharts 监控仪表板
+│   ├── webui_render.py      # ECharts 图表渲染
+│   ├── webui_format.py      # 数据格式化与降采样
+│   ├── soap_xml.py          # SOAP XML 解析
+│   ├── acl.py               # ACL IP 访问控制
+│   ├── app_health.py        # 健康检查
 │   ├── gunicorn_config.py   # WSGI 配置
 │   ├── static_bp.py         # 本地静态资源 Flask Blueprint
 │   ├── static/              # 本地静态文件
 │   └── xml/                 # UPnP 设备描述模板
 ├── test/                    # 测试
-├── docs/                    # 文档
+├── docs/                    # 文档（中英双语）
 ├── Dockerfile               # 生产镜像构建
 └── docker-compose.yml       # 编排部署
 ```
