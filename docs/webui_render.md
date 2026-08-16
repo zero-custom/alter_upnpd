@@ -30,7 +30,7 @@ Renders the GOST WebUI dashboard using PyWebIO components (cards, tables, modals
 
 ## Notes
 
-- ECharts is loaded via RequireJS with a CDN fallback path in `_ECHARTS_CDN_JS`.
+- ECharts is loaded via RequireJS from the local path `/static/js/echarts.min.js` configured in `_ECHARTS_CDN_JS`; there is no CDN fallback.
 - Charts use LTTB-style downsampling via `_downsample` (threshold: 1000 points) for performance with large datasets. Previously dead code — `display_max` is now decoupled from `max_history`.
 - CSS is inlined in `_CUSTOM_CSS` (no external stylesheet dependency).
 

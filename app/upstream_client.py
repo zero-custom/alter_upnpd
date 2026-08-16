@@ -71,7 +71,7 @@ class UpstreamClient:
             u = miniupnpc.UPnP()
             u.discoverdelay = 0
             u.selectigd(self._igd_url)
-            logger.info("Upstream IGD ready: lanaddr=%s  wanaddr=%s",
+            logger.debug("Upstream IGD ready: lanaddr=%s  wanaddr=%s",
                          u.lanaddr, u.wanaddr or "(n/a)")
             self._upnp = u
         except Exception as e:
@@ -83,7 +83,7 @@ class UpstreamClient:
                 self._upnp.getportmappingnumberofentries()
                 return True
             except Exception:
-                logger.info("Upstream IGD connection stale, reconnecting...")
+                logger.debug("Upstream IGD connection stale, reconnecting...")
                 self._upnp = None
 
         self._ensure_upnp()

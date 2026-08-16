@@ -83,9 +83,21 @@ class AppLifecycle:
         self._lease_thread.daemon = True
         self._lease_thread.start()
 
+        # WebUI 历史数据采集随程序启动开始，而非等浏览器访问时才初始化
+        try:
+            from webui import _start_background_collector
+            _start_background_collector()
+        except Exception:
+            logger.exception("Failed to start WebUI background collector")
+
         return self._shutdown_event
 
     def stop(self) -> None:
+        try:
+            from webui import stop_background_collector
+            stop_background_collector()
+        except Exception:
+            pass
         if self._shutdown_event:
             self._shutdown_event.set()
             logger.info("Shutting down, sending SSDP byebye...")

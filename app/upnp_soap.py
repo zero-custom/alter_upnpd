@@ -93,8 +93,8 @@ class UPnPSOAPHandler:
         method_name = handler_map.get(action)
         if method_name:
             handler = getattr(self, method_name)
-            logger.info("Handling SOAP action: %s on %s from %s",
-                        action, service_urn, request.remote_addr)
+            logger.debug("Handling SOAP action: %s on %s from %s",
+                         action, service_urn, request.remote_addr)
             return handler(params)
 
         logger.warning("Unknown SOAP action: %s on %s", action, service_urn)
@@ -310,7 +310,7 @@ class UPnPSOAPHandler:
             return Response(resp, mimetype="text/xml; charset=utf-8")
 
         mappings = self.gost.get_port_mappings()
-        logger.info(
+        logger.debug(
             "GetSpecificPortMappingEntry: ext=%s proto=%s host=%s  mappings_count=%d",
             external_port, protocol, remote_host, len(mappings),
         )
@@ -318,7 +318,7 @@ class UPnPSOAPHandler:
             if m.get("external_port") == external_port and m.get("protocol", "").upper() == protocol:
                 if remote_host and m.get("remote_host") != remote_host:
                     continue
-                logger.info("GetSpecificPortMappingEntry: found mapping %s", m.get("description"))
+                logger.debug("GetSpecificPortMappingEntry: found mapping %s", m.get("description"))
                 resp = self._xml.build_success_response("GetSpecificPortMappingEntry", {
                     "NewRemoteHost": m.get("remote_host", ""),
                     "NewExternalPort": m.get("external_port", 0),

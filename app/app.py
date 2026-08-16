@@ -90,6 +90,7 @@ webui.init(
     gost_client=gost_client,
     refresh_interval=cfg.gost_webui_refresh_interval,
     history_points=cfg.gost_webui_history_points,
+    window_seconds=cfg.gost_webui_window_seconds,
 )
 
 template = TemplateRenderer(XML_DIR)

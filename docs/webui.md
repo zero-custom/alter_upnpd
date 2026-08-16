@@ -35,13 +35,13 @@ PyWebIO + ECharts dashboard embedded in the Flask app (route `/`). Provides real
 | Property | Value |
 |---|---|
 | Engine | pyecharts (ECharts 6.x) |
-| Max data points | `EnvConfig.gost_webui_history_points` (default 8640, 10s interval = 24h) |
+| Max stored points | `EnvConfig.gost_webui_history_points` (default 8640). Display window is a 48h sliding time window (`GOST_WEBUI_WINDOW_SECONDS`, default 172800). |
 | Refresh interval | `EnvConfig.gost_webui_refresh_interval` (default 10s) |
 | Line style | Straight lines (`is_smooth=False`), no data point markers (`is_symbol_show=False`) |
 | X-axis | ECharts `type: "time"` with millisecond Unix timestamps (auto-formats labels: time when zoomed in, date+time when zoomed out) |
 | Zoom | dataZoom defaulting to last 1 hour |
 | Colours | Inbound blue, outbound green, connections orange |
-| Chart loading | ECharts loaded from local `/static/echarts.min` (CDN checked once at startup) |
+| Chart loading | ECharts loaded from local `/static/js/echarts.min.js`; no external CDN dependency (pywebio `cdn=False`). |
 
 ## Refresh Mechanism
 

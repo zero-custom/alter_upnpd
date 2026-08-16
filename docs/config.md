@@ -34,7 +34,7 @@ from config import StunConfig
 # app.py
 from config import AppConfig
 # AppConfig.SHUTDOWN_TIMEOUT  → 5
-# AppConfig.VERSION           → "1.3.2"
+# AppConfig.VERSION           → "1.3.3"
 ```
 
 ## Environment variables (PART 1)
@@ -58,4 +58,5 @@ from config import AppConfig
 | `GOST_API_PASSWORD` | `gost_api_password` | `""` | Password for GOST API Basic Auth. |
 | `GOST_METRICS_URL` | `gost_metrics_url` | `""` | Prometheus metrics URL for real-time bandwidth/connection stats. Empty = auto-discovered from GOST API `/metrics` endpoint. |
 | `GOST_WEBUI_REFRESH_INTERVAL` | `gost_webui_refresh_interval` | `10` | Dashboard refresh interval (seconds). |
-| `GOST_WEBUI_HISTORY_POINTS` | `gost_webui_history_points` | `8640` | Max data points stored per port for traffic charts. |
+| `GOST_WEBUI_HISTORY_POINTS` | `gost_webui_history_points` | `8640` | Max data points stored per port (ring-buffer cap). Also the base for the render point budget `min(., 1000)`. |
+| `GOST_WEBUI_WINDOW_SECONDS` | `gost_webui_window_seconds` | `172800` | Sliding time window (seconds) for traffic charts. Only data within this span from now is shown; older points are evicted. Sampling is exponentially denser near now. |

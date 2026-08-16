@@ -25,6 +25,7 @@ class EnvConfig:
 
     gost_webui_refresh_interval: int = 10
     gost_webui_history_points: int = 8640
+    gost_webui_window_seconds: int = 172800
 
     gost_api_url: str = "http://127.0.0.1:8000"
     gost_api_username: str = ""
@@ -65,6 +66,9 @@ def load_env_config() -> EnvConfig:
         gost_webui_history_points=int(
             os.environ.get("GOST_WEBUI_HISTORY_POINTS", "8640")
         ),
+        gost_webui_window_seconds=int(
+            os.environ.get("GOST_WEBUI_WINDOW_SECONDS", "172800")
+        ),
         gost_api_url=os.environ.get("GOST_API_URL", "http://127.0.0.1:8000"),
         gost_api_username=os.environ.get("GOST_API_USERNAME", ""),
         gost_api_password=os.environ.get("GOST_API_PASSWORD", ""),
@@ -97,7 +101,7 @@ class GunicornConfig:
 
 class AppConfig:
     SHUTDOWN_TIMEOUT = 5
-    VERSION = "1.3.2"
+    VERSION = "1.3.3"
 
 
 # ═══════════════════════════════════════════════════════

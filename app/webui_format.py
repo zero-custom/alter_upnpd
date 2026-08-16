@@ -30,6 +30,20 @@ class DataPoint:
     current_conns: int
 
 
+# 滑动时间窗：从现在往前保留的秒数（2 天）。
+WINDOW_SECONDS: int = 172800
+# 窗内降采样后渲染的最大点数（控制浏览器内存）。
+DISPLAY_MAX_DEFAULT: int = 1000
+# 指数衰减分段（从近到远）：(段长小时数, 配额权重)。
+# 段长 4/8/16/20h 越近越短，权重 4:2:1:1 越近越密（最近段占一半）。
+_DECAY_SEGMENTS = (
+    (4, 4),
+    (8, 2),
+    (16, 1),
+    (20, 1),
+)
+
+
 @dataclass
 class ChartState:
     history: Dict[str, List[DataPoint]] = field(default_factory=dict)
@@ -38,7 +52,8 @@ class ChartState:
     prev_total_output: int = 0
     prev_total_time: float = 0
     max_history: int = 8640
-    display_max: int = 8640
+    display_max: int = DISPLAY_MAX_DEFAULT
+    window_seconds: int = WINDOW_SECONDS
 
 
 # ── Formatting ──
@@ -92,13 +107,44 @@ def _fmt_speed(bps: float) -> str:
 # ── Downsample ──
 
 
-def _downsample(points: List[DataPoint], max_points: Optional[int] = None) -> List[DataPoint]:
-    if max_points is None:
+def _trim_window(
+    points: List[DataPoint], now: float, window_seconds: int
+) -> List[DataPoint]:
+    if window_seconds <= 0:
         return points
-    if len(points) <= max_points:
+    cutoff = now - window_seconds
+    kept = [p for p in points if p.timestamp >= cutoff]
+    return kept if kept else points[-1:]
+
+
+def _decay_downsample(
+    points: List[DataPoint], now: float, display_max: int
+) -> List[DataPoint]:
+    if len(points) <= display_max:
         return points
-    step = len(points) / max_points
-    return [points[int(i * step)] for i in range(max_points)]
+
+    # 按距离 now 的分段（从近到远）分配配额，越近段配额越多 → 越密。
+    total_weight = sum(w for _, w in _DECAY_SEGMENTS)
+    budget = display_max
+    selected: List[DataPoint] = []
+    for seg_len_h, weight in _DECAY_SEGMENTS:
+        seg_start = now - seg_len_h * 3600
+        seg_pts = [p for p in points if p.timestamp >= seg_start]
+        if not seg_pts:
+            continue
+        # 该段配额，最后一段吸收余数，保证总数 = display_max。
+        if seg_len_h == _DECAY_SEGMENTS[-1][0]:
+            quota = budget
+        else:
+            quota = max(1, round(display_max * weight / total_weight))
+            budget -= quota
+        if len(seg_pts) <= quota:
+            selected.extend(seg_pts)
+        else:
+            step = len(seg_pts) / quota
+            selected.extend(seg_pts[int(i * step)] for i in range(quota))
+    # 按时间升序返回，保证折线 x 轴单调。
+    return sorted(selected, key=lambda p: p.timestamp)
 
 
 # ── Record data points into ChartState ──
@@ -110,8 +156,10 @@ def _record_data_points(cs: ChartState, mappings: List[Dict], stats: Dict) -> No
     def _append(key: str, dp: DataPoint) -> None:
         hist = cs.history.setdefault(key, [])
         hist.append(dp)
+        # 点数量上限（兜底）与时间窗双重裁剪，保证旧数据被顶出。
         if len(hist) > cs.max_history:
             hist[:] = hist[-cs.max_history:]
+        hist[:] = _trim_window(hist, now, cs.window_seconds)
 
     for m in mappings:
         key = f"{m['protocol'].lower()}/{m['external_port']}"

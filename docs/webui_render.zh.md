@@ -30,7 +30,7 @@
 
 ## 说明
 
-- ECharts 通过 RequireJS 加载，`_ECHARTS_CDN_JS` 中包含 CDN fallback 路径。
+- ECharts 通过 RequireJS 从 `_ECHARTS_CDN_JS` 配置的本地路径 `/static/js/echarts.min.js` 加载，无 CDN fallback。
 - 图表使用 LTTB 风格降采样（`_downsample`，阈值 1000 点）以优化大数据集的性能。此前为死代码——`display_max` 现已与 `max_history` 解耦。
 - CSS 内联在 `_CUSTOM_CSS` 中（无外部样式表依赖）。
 

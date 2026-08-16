@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.3.3 (2026-08-16)
+
+### Fixed
+
+- **图表滑动窗口无效**：渲染层写死窗口常量且等于存储上限，旧数据无法顶出；降采样均匀无密→疏。改为时间窗（`GOST_WEBUI_WINDOW_SECONDS`，默认 48h）+ 窗内指数衰减采样（越近越密）。
+
+### Added
+
+- `GOST_WEBUI_WINDOW_SECONDS` 环境变量（默认 `172800`）。
+
+### Changed
+
+- **引导脚本 import_name:pip_name 语法**：`INSTALL_PIP_PACKAGES` 支持 `导入名:安装名` 语法，pip 包名与 import 名不一致时可分别指定（如 `yaml:PyYAML`）。
+- **减少运行期日志噪声**：将 `upnp_soap` 常规 SOAP 处理（Handling SOAP action / GetSpecificPortMappingEntry 轮询）与 `upstream_client` 心跳重连（connection stale / IGD ready）由 INFO 降为 DEBUG，避免高频轮询刷屏；Add/Delete/Renew 等真实事件仍保留 INFO。
+- **WebUI 主题恢复为 `default`**：为规避 `yeti` 主题通过 `@import` 加载 Google Fonts（外网字体），此前曾临时切换到 `dark`；经验证 `default` 主题同样无外部字体引用（离线安全），故恢复默认主题。
+
+### Docs
+
+- 修正文档中过时的「24 小时窗口」描述为「48 小时服务端滑动窗口」（`GOST_WEBUI_WINDOW_SECONDS`，默认 172800）。
+- 移除 ECharts「CDN 启动时检查 / CDN fallback」等过时描述，明确 ECharts 从本地 `/static/js/echarts.min.js` 加载、无外部 CDN 依赖（`webio_view(..., cdn=False)`）。
+
+---
+
 ## 1.3.2 (2026-07-05)
 
 ### Fixed

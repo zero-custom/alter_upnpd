@@ -13,7 +13,7 @@ from pywebio.exceptions import SessionNotFoundException
 from gost_client import GostApiError, GostClient, GostConnectionError, MetricsFilter
 from webui_format import (
     ChartState, DataPoint,
-    _downsample, _fmt_bytes, _fmt_duration, _fmt_speed,
+    _fmt_bytes, _fmt_duration, _fmt_speed,
     _prepare_summary_data, _record_data_points,
     get_summary_stats,
 )
@@ -52,12 +52,14 @@ def init(
     gost_client: GostClient,
     refresh_interval: int = 10,
     history_points: int = 8640,
+    window_seconds: int = 172800,
 ):
     global _gost_client, _refresh_interval
     _gost_client = gost_client
     _refresh_interval = refresh_interval
     _state.chart.max_history = history_points
     _state.chart.display_max = min(history_points, 1000)
+    _state.chart.window_seconds = window_seconds
 
 
 # ── Background collector (single writer) ──
@@ -73,6 +75,11 @@ def _start_background_collector() -> None:
     t = threading.Thread(target=_collector_worker, daemon=True)
     t.start()
     logger.info("Background collector started")
+
+
+def stop_background_collector() -> None:
+    _collector_stop.set()
+    logger.info("Background collector stop requested")
 
 
 def _collector_worker() -> None:
@@ -361,9 +368,9 @@ def main() -> None:
         _gost_client = GostClient("http://127.0.0.1:8000")
         logger.warning("webui.main() called without init() — using default GostClient")
 
-    _start_background_collector()
-
-    config(title="GOST Port Mapping Web UI", theme="yeti",
+    # collector 已在程序启动 (lifecycle.start) 时启动，此处不再初始化
+    # 不用 yeti：yeti 主题 CSS 会 @import Google Fonts（外网字体）；default 无外部字体引用（离线安全）
+    config(title="GOST Port Mapping Web UI", theme="default",
            css_style=render._CUSTOM_CSS)
 
     run_js(render._ECHARTS_CDN_JS)

@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 from pyecharts import options as opts
@@ -12,8 +13,8 @@ from pywebio.pin import *
 from gost_client import GostApiError, GostConnectionError
 from webui_format import (
     _CHART_COLORS, _CHART_NAMES, _COLORS,
-    _downsample, _fmt_bytes, _fmt_duration, _fmt_speed,
-    _prepare_summary_data,
+    _decay_downsample, _fmt_bytes, _fmt_duration, _fmt_speed,
+    _prepare_summary_data, _trim_window,
     ChartState, DataPoint,
 )
 
@@ -24,10 +25,6 @@ _ECHARTS_CDN_JS = (
     "require.config({paths:{'echarts':'/static/js/echarts.min'}});"
     "require(['echarts'],function(e){window.echarts=e;})"
 )
-
-# 滚动窗口：只展示最近 N 个点，新数据从右进入
-_WINDOW_SIZE = 8640
-
 
 def _card(label: str, value: str, color_idx: int) -> Any:
     return put_column([
@@ -63,7 +60,9 @@ def _build_echarts_html(
     if not points or len(points) < 2:
         return f'<div id="{chart_id}" style="width:100%;height:{height}px;"></div>'
 
-    pts = _downsample(points, max_points=cs.display_max)
+    # 时间窗裁剪 + 指数衰减降采样：越近越密、越久越疏，旧数据被顶出。
+    windowed = _trim_window(points, points[-1].timestamp, cs.window_seconds)
+    pts = _decay_downsample(windowed, windowed[-1].timestamp, cs.display_max)
     times = [int(p.timestamp * 1000) for p in pts]
     data_in  = [round(p.speed_in, 1) for p in pts]
     data_out = [round(p.speed_out, 1) for p in pts]
@@ -165,17 +164,17 @@ def _build_echarts_html(
 def _init_chart(cs: ChartState) -> None:
     total_pts = cs.history.get("__total__", [])
     with use_scope("charts", clear=True):
-        window = total_pts[-_WINDOW_SIZE:] if len(total_pts) >= _WINDOW_SIZE else total_pts
-        put_html(_build_echarts_html(cs, "chart_total", window, "\u603b\u6d41\u91cf\u8d8b\u52bf (24h)", height=500))
+        window = _trim_window(total_pts, time.time(), cs.window_seconds)
+        put_html(_build_echarts_html(cs, "chart_total", window, "\u603b\u6d41\u91cf\u8d8b\u52bf (48h)", height=500))
 
 
 def _render_charts(cs: ChartState) -> None:
     total_pts = cs.history.get("__total__", [])
     if not total_pts:
         return
-    window = total_pts[-_WINDOW_SIZE:] if len(total_pts) >= _WINDOW_SIZE else total_pts
+    window = _trim_window(total_pts, time.time(), cs.window_seconds)
     # 只入队 options，不碰 DOM（容器已由 _init_chart 创建）
-    _build_echarts_html(cs, "chart_total", window, "\u603b\u6d41\u91cf\u8d8b\u52bf (24h)", height=500)
+    _build_echarts_html(cs, "chart_total", window, "\u603b\u6d41\u91cf\u8d8b\u52bf (48h)", height=500)
 
 
 def _render_add_form(on_add) -> None:
@@ -211,10 +210,11 @@ def _render_add_form(on_add) -> None:
 
 def _build_per_port_data_script(cs: ChartState) -> str:
     port_data = {}
+    now = time.time()
     for key, points in cs.history.items():
         if key == "__total__":
             continue
-        window = points[-_WINDOW_SIZE:] if len(points) >= _WINDOW_SIZE else points
+        window = _trim_window(points, now, cs.window_seconds)
         port_data[key] = [
             [p.timestamp, round(p.speed_in, 1), round(p.speed_out, 1), p.current_conns]
             for p in window
@@ -224,10 +224,11 @@ def _build_per_port_data_script(cs: ChartState) -> str:
 
 def _build_per_port_data_update_js(cs: ChartState) -> str:
     port_data = {}
+    now = time.time()
     for key, points in cs.history.items():
         if key == "__total__":
             continue
-        window = points[-_WINDOW_SIZE:] if len(points) >= _WINDOW_SIZE else points
+        window = _trim_window(points, now, cs.window_seconds)
         port_data[key] = [
             [p.timestamp, round(p.speed_in, 1), round(p.speed_out, 1), p.current_conns]
             for p in window

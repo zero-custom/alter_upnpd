@@ -35,13 +35,15 @@
 | 属性 | 值 |
 |---|---|
 | 渲染引擎 | pyecharts (ECharts 6.x) |
-| 数据点上限 | `EnvConfig.gost_webui_history_points`（默认 8640，10 秒间隔 = 24 小时） |
+| 滑动时间窗 | `EnvConfig.gost_webui_window_seconds`（默认 172800 = 48 小时）。只展示从现在往前该时间长度内的数据，新数据进入后超出窗口的旧数据被顶出，形成滑动窗口 |
+| 显示上限 | `EnvConfig.gost_webui_history_points` 经 `min(., 1000)` 派生（默认 1000 点） |
+| 采样方式 | 时间窗内**指数衰减采样**：越接近现在采样率越高、越久远越低。分段 0–4h / 4–12h / 12–28h / 28–48h，配额权重 4:2:1:1（最近 4h 占一半点数） |
 | 刷新间隔 | `EnvConfig.gost_webui_refresh_interval`（默认 10 秒） |
 | 曲线样式 | 直线（`is_smooth=False`），无数据点标记（`is_symbol_show=False`） |
 | X 轴 | ECharts `type: "time"`，毫秒级 Unix 时间戳（自动格式化标签：放大显示时间，缩小显示日期+时间） |
 | 缩放 | dataZoom 默认展示最近 1 小时 |
 | 配色 | 入站蓝色、出站绿色、连接数橙色 |
-| 图表加载 | ECharts 从本地 `/static/echarts.min` 加载（CDN 仅启动时检查） |
+| 图表加载 | ECharts 从本地 `/static/js/echarts.min.js` 加载；无外部 CDN 依赖（pywebio `cdn=False`）。 |
 
 ## 刷新机制
 
@@ -75,6 +77,7 @@
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
 | `GOST_WEBUI_REFRESH_INTERVAL` | `10` | 仪表板刷新间隔（秒） |
-| `GOST_WEBUI_HISTORY_POINTS` | `8640` | 每端口存储的数据点上限 |
+| `GOST_WEBUI_HISTORY_POINTS` | `8640` | 每端口存储的数据点上限（同时作为显示降采样上限的基数，`min(.,1000)` 为渲染点数） |
+| `GOST_WEBUI_WINDOW_SECONDS` | `172800` | 图表滑动时间窗（秒）。只显示从现在往前该时长内的数据，越近采样越密，超出窗口的旧数据被顶出 |
 | `GOST_API_URL` | `http://127.0.0.1:8000` | GOST API 地址 |
 | `GOST_METRICS_URL` | `""` | Prometheus metrics URL（空则自动发现） |
