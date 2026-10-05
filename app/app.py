@@ -67,6 +67,7 @@ gost_client = GostClient(
     username=cfg.gost_api_username,
     password=cfg.gost_api_password,
     metrics_url=cfg.gost_metrics_url,
+    proxy_protocol=cfg.gost_proxy_protocol,
 )
 upstream = UpstreamClient(
     upstream_igd_url=cfg.upstream_igd_url,

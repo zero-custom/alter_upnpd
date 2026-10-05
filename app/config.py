@@ -31,6 +31,7 @@ class EnvConfig:
     gost_api_username: str = ""
     gost_api_password: str = ""
     gost_metrics_url: str = ""
+    gost_proxy_protocol: bool = True
 
     def __repr__(self) -> str:
         cls = self.__class__.__name__
@@ -73,6 +74,7 @@ def load_env_config() -> EnvConfig:
         gost_api_username=os.environ.get("GOST_API_USERNAME", ""),
         gost_api_password=os.environ.get("GOST_API_PASSWORD", ""),
         gost_metrics_url=os.environ.get("GOST_METRICS_URL", ""),
+        gost_proxy_protocol=os.environ.get("GOST_PROXY_PROTOCOL", "true").lower() in ("true", "1", "yes"),
     )
 
 
@@ -101,7 +103,7 @@ class GunicornConfig:
 
 class AppConfig:
     SHUTDOWN_TIMEOUT = 5
-    VERSION = "1.3.3"
+    VERSION = "1.3.4"
 
 
 # ═══════════════════════════════════════════════════════

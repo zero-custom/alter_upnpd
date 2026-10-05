@@ -204,6 +204,7 @@ class PortMappingRepository:
         speed_tracker: Optional[SpeedTracker] = None,
         services_cache_ttl: int = 30,
         config_cache_ttl: int = 60,
+        proxy_protocol: bool = True,
     ):
         self._transport = transport
         self._speed_tracker = speed_tracker or SpeedTracker()
@@ -213,6 +214,17 @@ class PortMappingRepository:
         self._config_cache: Optional[Dict[str, Any]] = None
         self._config_cache_ts: float = 0
         self._config_cache_ttl = config_cache_ttl
+        # Send PROXY protocol header to the upstream backend (TCP only).
+        # GOST docs: handler-level `metadata.proxyProtocol` on port-forward
+        # services; UDP is not supported by GOST proxy protocol.
+        self._proxy_protocol = proxy_protocol
+
+    def _handler_config(self, protocol: str) -> Dict[str, Any]:
+        proto_lower = protocol.lower()
+        handler: Dict[str, Any] = {"type": proto_lower}
+        if self._proxy_protocol and proto_lower == "tcp":
+            handler["metadata"] = {"proxyProtocol": 1}
+        return handler
 
     # ── HTTP delegation ──
 
@@ -279,7 +291,7 @@ class PortMappingRepository:
         service_config = {
             "name": name,
             "addr": f":{external_port}",
-            "handler": {"type": proto_lower},
+            "handler": self._handler_config(proto_lower),
             "listener": {"type": proto_lower},
             "metadata": {
                 "upnp": True,
@@ -334,7 +346,7 @@ class PortMappingRepository:
         service_config = {
             "name": service_name,
             "addr": f":{external_port}",
-            "handler": {"type": proto_lower},
+            "handler": self._handler_config(proto_lower),
             "listener": {"type": proto_lower},
             "metadata": {
                 "upnp": True,
@@ -587,6 +599,7 @@ class GostClient:
         transport: Optional[GostTransport] = None,
         repository: Optional[PortMappingRepository] = None,
         metrics_client: Optional[GostMetricsClient] = None,
+        proxy_protocol: bool = True,
     ):
         if repository is not None:
             self.repository = repository
@@ -599,7 +612,9 @@ class GostClient:
                 username=username,
                 password=password,
             )
-            self.repository = PortMappingRepository(self._transport)
+            self.repository = PortMappingRepository(
+                self._transport, proxy_protocol=proxy_protocol
+            )
 
         self.metrics = metrics_client or GostMetricsClient(
             self._transport, initial_metrics_url=metrics_url,

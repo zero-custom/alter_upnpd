@@ -115,6 +115,7 @@ docker run -d \
 | `-e GOST_API_USERNAME=user` | GOST API 认证用户名（建议项，与 `GOST_API_PASSWORD` 同时设置才生效） |
 | `-e GOST_API_PASSWORD=pass` | GOST API 认证密码 |
 | `-e GOST_METRICS_URL=http://host.docker.internal:8000/metrics` | Prometheus metrics URL（空=自动发现） |
+| `-e GOST_PROXY_PROTOCOL=true` | 向上游后端发送 PROXY 协议头（仅 TCP；后端须支持解析，默认开启） |
 | `-e GOST_WEBUI_REFRESH_INTERVAL=10` | WebUI 仪表板刷新间隔（秒） |
 | `-e GOST_WEBUI_HISTORY_POINTS=8640` | 每端口存储的数据点上限 |
 | `-e UPSTREAM_IGD_URL=http://192.168.1.1:5000/rootDesc.xml` | 上游 IGD rootDesc.xml URL（空=禁用）。设置后端口映射自动同步到上游 IGD，并每 60 秒自动巡检恢复丢失的映射 |

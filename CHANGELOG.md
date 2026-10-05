@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.4 (2026-10-04)
+
+### Added
+
+- **PROXY 协议发送端支持**：新增 `GOST_PROXY_PROTOCOL` 环境变量（默认 `false`）。开启后经 GOST 创建的 TCP 转发规则携带 handler 级 `metadata.proxyProtocol`，GOST 即向后端发送 PROXY 头（v2），后端可拿到真实客户端 IP。UDP 不受影响（GOST 代理协议不支持 UDP）。
+
+### Changed
+
+- **PROXY 协议默认开启**：`GOST_PROXY_PROTOCOL` 默认值由 `false` 改为 `true`，新建/更新的 TCP 转发规则默认携带 PROXY 头；显式设为 `false/0/no` 可关闭。
+
+---
+
 ## 1.3.3 (2026-08-16)
 
 ### Fixed

@@ -34,7 +34,7 @@ from config import StunConfig
 # app.py
 from config import AppConfig
 # AppConfig.SHUTDOWN_TIMEOUT  → 5
-# AppConfig.VERSION           → "1.3.3"
+# AppConfig.VERSION           → "1.3.4"
 ```
 
 ## 环境变量（PART 1）
@@ -57,5 +57,6 @@ from config import AppConfig
 | `GOST_API_USERNAME` | `gost_api_username` | `""` | GOST API Basic Auth 用户名（需同时设置用户名和密码才生效）。 |
 | `GOST_API_PASSWORD` | `gost_api_password` | `""` | GOST API Basic Auth 密码。 |
 | `GOST_METRICS_URL` | `gost_metrics_url` | `""` | Prometheus metrics URL，用于实时带宽/连接统计。空 = 从 GOST API `/metrics` 端点自动发现。 |
+| `GOST_PROXY_PROTOCOL` | `gost_proxy_protocol` | `true` | 向上游后端发送 PROXY 协议头（GOST 端口转发 handler 的 `metadata.proxyProtocol`）。仅 TCP 生效——GOST 代理协议不支持 UDP。后端必须能解析 PROXY 头，否则数据流会损坏。 |
 | `GOST_WEBUI_REFRESH_INTERVAL` | `gost_webui_refresh_interval` | `10` | 仪表板刷新间隔（秒）。 |
 | `GOST_WEBUI_HISTORY_POINTS` | `gost_webui_history_points` | `8640` | 每端口存储的流量图表数据点上限。 |
